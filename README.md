@@ -255,12 +255,12 @@ The process of converting an CZI to an HCS OME-ZARR is explained in more detail 
 
 Jupyter Notebook - Conversion: [convert_czi2hcs_omezarr.ipynb](scripts/convert_czi2hcs_omezarr.ipynb)
 
-![Heatmap from HCS OME-ZARR](images/heatmap.png)
-
 ## Analyze and HCS OME-ZARR
 
 After the conversion it is very straight forward to analyze the resulting HCS OME-ZARR.
 
+Jupyter Notebook - Image Analysis: [process_omezarr_HCS_plate.ipynb](scripts/process_omezarr_HCS_plate.ipynb)
+
 The final result for that example is this heatmap:
 
-Jupyter Notebook - Image Analysis: [process_omezarr_HCS_plate.ipynb](scripts/process_omezarr_HCS_plate.ipynb)
+![Heatmap from HCS OME-ZARR](images/heatmap.png)
