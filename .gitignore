@@ -207,3 +207,4 @@ marimo/_lsp/
 __marimo__/
 /data/CellDivision5D_ngff.ome.zarr
 /data/CellDivision5D.ome.zarr
+/data/WP96_4Pos_B4-10_DAPI_HCSplate.ome.zarr

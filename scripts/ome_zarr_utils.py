@@ -23,13 +23,46 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def setup_logging(log_file_path: str = None, log_level: int = logging.INFO):
+    """
+    Set up logging configuration consistently across all functions.
+
+    Args:
+        log_file_path: Path to log file. If None, creates a default log file.
+        log_level: Logging level (default: INFO)
+    """
+    # Get the root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    # Clear any existing handlers to avoid conflicts
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Set up formatter
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+    # Add console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+    # Add file handler if log_file_path is provided
+    if log_file_path:
+        file_handler = logging.FileHandler(str(log_file_path))
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+
+    return root_logger
+
+
 @unique
 class omezarr_package(Enum):
     OME_ZARR = 1
     NGFF_ZARR = 2
 
 
-def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True) -> str:
+def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_path: str = None) -> str:
     """Convert CZI file to OME-ZARR HCS (High Content Screening) format.
 
     This function converts a CZI (Carl Zeiss Image) file containing plate data into
@@ -39,6 +72,7 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True) -> str:
         czi_filepath: Path to the input CZI file
         overwrite: If True, removes existing zarr files at the output path.
                   If False, skips conversion if output exists.
+        log_file_path: Path to log file. If None, creates default log file based on input filename.
 
     Returns:
         str: Path to the output ZARR file (.ngff_plate.zarr)
@@ -47,6 +81,19 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True) -> str:
         The output format follows the OME-NGFF specification for HCS data,
         organizing the data in a plate/row/column/field hierarchy.
     """
+    # Set up logging if not already configured
+    if log_file_path is None:
+        czi_path = Path(czi_filepath)
+        log_file_path = czi_path.parent / f"{czi_path.stem}_hcs_omezarr.log"
+
+    setup_logging(log_file_path)
+    logger = logging.getLogger(__name__)
+
+    logger.info("=" * 80)
+    logger.info("CZI to HCS OME-ZARR Conversion Started (OME-ZARR format)")
+    logger.info("=" * 80)
+    logger.info(f"Input CZI file: {Path(czi_filepath).absolute()}")
+
     # Define output path
     zarr_output_path = Path(czi_filepath[:-4] + "HCSplate.ome.zarr")
 
@@ -103,7 +150,10 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True) -> str:
                 storage_options=dict(chunks=(1, 1, 1, array6d.Y.size, array6d.X.size)),
             )
 
-    logger
+    logger.info("=" * 80)
+    logger.info("Conversion completed successfully!")
+    logger.info(f"Output HCS OME-ZARR file: {zarr_output_path}")
+    logger.info("=" * 80)
 
     return str(zarr_output_path)
 
@@ -260,7 +310,33 @@ def define_plate_by_well_count(well_count: int, field_count: int = 1) -> Plate:
     return plate_metadata
 
 
-def convert_czi2hcs_ngff(czi_filepath: str, plate_name: str = "Automated Plate", overwrite: bool = True) -> str:
+def convert_czi2hcs_ngff(
+    czi_filepath: str, plate_name: str = "Automated Plate", overwrite: bool = True, log_file_path: str = None
+) -> str:
+    """Convert CZI file to OME-ZARR HCS format using NGFF-ZARR package.
+
+    Args:
+        czi_filepath: Path to the input CZI file
+        plate_name: Name of the well plate for metadata
+        overwrite: If True, removes existing zarr files at the output path
+        log_file_path: Path to log file. If None, creates default log file based on input filename.
+
+    Returns:
+        str: Path to the output ZARR file
+    """
+    # Set up logging if not already configured
+    if log_file_path is None:
+        czi_path = Path(czi_filepath)
+        log_file_path = czi_path.parent / f"{czi_path.stem}_hcs_ngff.log"
+
+    setup_logging(log_file_path)
+    logger = logging.getLogger(__name__)
+
+    logger.info("=" * 80)
+    logger.info("CZI to HCS OME-ZARR Conversion Started (NGFF-ZARR format)")
+    logger.info("=" * 80)
+    logger.info(f"Input CZI file: {Path(czi_filepath).absolute()}")
+    logger.info(f"Plate name: {plate_name}")
 
     # Define output path
     zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ome.zarr")
@@ -342,7 +418,11 @@ def convert_czi2hcs_ngff(czi_filepath: str, plate_name: str = "Automated Plate",
                 field_index=fi,  # First field of view
                 acquisition_id=0,
             )
-    logger.info("CZI to NGFF HCS-ZARR conversion completed.")
+
+    logger.info("=" * 80)
+    logger.info("Conversion completed successfully!")
+    logger.info(f"Output HCS OME-ZARR file: {zarr_output_path}")
+    logger.info("=" * 80)
 
     return str(zarr_output_path)
 
@@ -403,6 +483,7 @@ def write_omezarr(
     zarr_path: Union[str, Path],
     metadata: CziMetadata,
     overwrite: bool = False,
+    log_file_path: str = None,
 ) -> Optional[str]:
     """
     Write a 5D array to OME-ZARR format.
@@ -420,27 +501,23 @@ def write_omezarr(
         metadata: Metadata object containing information about the image.
         overwrite: If True, remove existing file at zarr_path before writing.
                   If False and file exists, return None without writing.
-                  Default is False.
-
-    Returns:
-        str: Path to the written OME-ZARR file if successful, None if failed.
-
-    Raises:
-        None: Function handles errors gracefully and returns None on failure.
-
-    Examples:
-        >>> import numpy as np
-        >>> data = np.random.rand(10, 2, 5, 512, 512)  # TCZYX
-        >>> result = write_omezarr(data, "output.ome.zarr", madata, overwrite=True)
-        >>> print(f"Written to: {result}")
-
-    Notes:
-        - The function uses chunking strategy (1, 1, 1, Y, X) which keeps
-          individual Z-slices as chunks for efficient access.
-        - Requires the array to have an 'axes' attribute (typical for xarray)
-          or the function will use default axes handling.
-        - Uses the current NGFF (Next Generation File Format) specification.
+        log_file_path: Path to log file. If None, creates default log file based on zarr filename.
     """
+    # Set up logging if not already configured
+    if log_file_path is None:
+        zarr_path_obj = Path(zarr_path)
+        log_file_path = zarr_path_obj.parent / f"{zarr_path_obj.stem}_omezarr.log"
+
+    setup_logging(log_file_path)
+    logger = logging.getLogger(__name__)
+
+    logger.info("=" * 80)
+    logger.info("Writing OME-ZARR format (ome-zarr-py)")
+    logger.info("=" * 80)
+    logger.info(f"Input array shape: {array5d.shape}")
+    logger.info(f"Output path: {zarr_path}")
+
+    zarr_path = Path(zarr_path)
 
     # Validate input array dimensions - OME-ZARR supports up to 5D
     if len(array5d.shape) > 5:
@@ -512,47 +589,46 @@ def write_omezarr(
         },
     )
 
+    logger.info("=" * 80)
+    logger.info("OME-ZARR writing completed successfully!")
+    logger.info(f"Output file: {zarr_path}")
+    logger.info("=" * 80)
+
     return zarr_path
 
 
 def write_omezarr_ngff(
-    array5d, zarr_path: str, metadata: CziMetadata, scale_factors: list = [2, 4, 8], overwrite: bool = False
+    array5d,
+    zarr_path: str,
+    metadata: CziMetadata,
+    scale_factors: list = [2, 4, 8],
+    overwrite: bool = False,
+    version: str = "0.5",
+    log_file_path: str = None,
 ) -> Optional[nz.NgffImage]:
     """
     Write a 5D array to OME-ZARR NGFF format with multi-scale pyramids.
     This function converts a 5D array (with dimensions t, c, z, y, x) to the OME-ZARR
     Next Generation File Format (NGFF) specification, creating multi-scale representations
     for efficient visualization and analysis.
-    Parameters
-    ----------
-    array5d : array-like
-        5D array with dimensions in order [t, c, z, y, x] representing time, channels,
-        z-depth, y-coordinate, and x-coordinate respectively.
-    zarr_path : str
-        File path where the OME-ZARR file will be written. Should end with '.ome.zarr'
-        extension by convention.
-    metadata : CziMetadata
-        Metadata object containing scale information (X, Y, Z pixel sizes) and filename
-        for the source image.
-    scale_factors : list, optional
-        List of downsampling factors for creating multi-scale pyramid levels.
-        Default is [2, 4, 8].
-    overwrite : bool, optional
-        If True, existing files at zarr_output_path will be removed before writing.
-        If False and file exists, function returns None without writing.
-        Default is False.
-    Returns
-    -------
-    image or None
-        Returns the NGFF image object if successful, or None if the file already
-        exists and overwrite=False.
-    Notes
-    -----
-    - Creates multi-scale representations using Gaussian downsampling via dask-image
-    - Automatically sets proper dimension names and scale metadata
-    - Uses chunked storage for efficient access patterns
-    - Follows OME-ZARR NGFF specification for interoperability
+
+    Args:
+        log_file_path: Path to log file. If None, creates default log file based on zarr filename.
     """
+    # Set up logging if not already configured
+    if log_file_path is None:
+        zarr_path_obj = Path(zarr_path)
+        log_file_path = zarr_path_obj.parent / f"{zarr_path_obj.stem}_ngff.log"
+
+    setup_logging(log_file_path)
+    logger = logging.getLogger(__name__)
+
+    logger.info("=" * 80)
+    logger.info("Writing OME-ZARR NGFF format with multiscale")
+    logger.info("=" * 80)
+    logger.info(f"Input array shape: {array5d.shape}")
+    logger.info(f"Output path: {zarr_path}")
+    logger.info(f"Scale factors: {scale_factors}")
 
     # Validate input array dimensions - OME-ZARR supports up to 5D
     if len(array5d.shape) > 5:
@@ -574,10 +650,26 @@ def write_omezarr_ngff(
         name=metadata.filename[:-4] + ".ome.zarr",
     )
 
+    # define chuunk size
+    chunks = (1, array5d.shape[1], array5d.shape[2], array5d.shape[3], array5d.shape[4])
+
     # create multi-scaled, chunked data structure from the image
-    multiscales = nz.to_multiscales(image, scale_factors=scale_factors, method=nz.Methods.DASK_IMAGE_GAUSSIAN)
+    multiscales = nz.to_multiscales(
+        image, scale_factors=scale_factors, chunks=chunks, method=nz.Methods.DASK_IMAGE_GAUSSIAN
+    )
+
+    # define chunks per shard
+    # chunks_per_shard={'z':4, 'y':2, 'x':2}
+    chunks_per_shard = 2
 
     # write using ngff-zarr
-    nz.to_ngff_zarr(zarr_path, version="0.5", chunks_per_shard=None, use_tensorstore=False, multiscales=multiscales)
+    nz.to_ngff_zarr(
+        zarr_path, version="0.5", chunks_per_shard=chunks_per_shard, use_tensorstore=False, multiscales=multiscales
+    )
+
+    logger.info("=" * 80)
+    logger.info("NGFF OME-ZARR writing completed successfully!")
+    logger.info(f"Output file: {zarr_path}")
+    logger.info("=" * 80)
 
     return image
