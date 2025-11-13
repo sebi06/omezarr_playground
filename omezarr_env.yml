@@ -1,0 +1,86 @@
+# Tested on Windows only (but should also work for Linux)
+#
+# Disclaimer:
+#
+# The author(s) undertakes no warranty concerning the use of this YML file. Use at your own risk.
+# By using any of those examples you agree to this disclaimer.
+
+name: omezarr
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - colormap
+  #- czifile
+  - dask
+  - dask-image
+  - docutils
+  - fsspec
+  - ipyfilechooser
+  - ipykernel
+  - magicgui
+  - matplotlib
+  - napari>=0.6.5
+  - numpy
+  - ome-zarr
+  - pandas
+  - pip
+  - pooch
+  - pyqt=5
+  - pytest
+  - pytest-cov
+  - python-box[all]
+  - python-dateutil
+  - qasync
+  - requests
+  - scikit-image>=0.19.3
+  - setuptools
+  - tqdm
+  - validators
+  - wheel
+  - xarray
+  - xarray[complete]
+  - xmltodict
+  - zarr
+
+  - pip:
+      - aicspylibczi>=3.3.1
+      - bioio
+      - bioio-czi
+      - bioio-imageio
+      - bioio-ome-tiff
+      - bioio-ome-zarr
+      - cztile
+      - czitools
+      - loguru
+      - napari-brightness-contrast
+      - napari-crop
+      #- napari-czitools
+      - napari-layer-details-display
+      - napari-ome-zarr
+      - napari-plugin-search
+      - napari-skimage-regionprops
+      - napari-orthogonal-views
+      - ngff-zarr
+      - ngff-zarr[dask-image]
+      - ngff-zarr[validate]
+      - pylibCZIrw
+      - ryomen
+      - tiler
+      - wigglystuff
+      - psutil
+      #- fileglancer # Linux only !!!
+
+# Create an environment - use conda or mamba
+# conda env create --file omezarr_env.yml
+
+# Update an environment
+# conda env update --name omezarr --file omezarr_env.yml --prune
+
+# Remove an environment
+# conda remove --name omezarr --all
+# conda clean --all
+
+# Show the locations of all versions of Python that are currently in the path
+# Windows: where python
+# Linux which -a python
