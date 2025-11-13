@@ -55,21 +55,15 @@ dependencies:
       - loguru
       - napari-brightness-contrast
       - napari-crop
-      #- napari-czitools
+      - napari-czitools
       - napari-layer-details-display
       - napari-ome-zarr
       - napari-plugin-search
       - napari-skimage-regionprops
-      - napari-orthogonal-views
       - ngff-zarr
       - ngff-zarr[dask-image]
       - ngff-zarr[validate]
       - pylibCZIrw
-      - ryomen
-      - tiler
-      - wigglystuff
-      - psutil
-      #- fileglancer # Linux only !!!
 
 # Create an environment - use conda or mamba
 # conda env create --file omezarr_env.yml
