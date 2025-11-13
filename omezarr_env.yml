@@ -60,6 +60,7 @@ dependencies:
       - napari-layer-details-display
       - napari-ome-zarr
       - napari-plugin-search
+      #- napari-ome-zarr-navigator
       - napari-skimage-regionprops
       - ngff-zarr
       - ngff-zarr[dask-image]

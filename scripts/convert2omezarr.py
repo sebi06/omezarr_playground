@@ -30,28 +30,27 @@ if __name__ == "__main__":
         epilog="""
 Examples:
     # Basic conversion with default NGFF-ZARR format and default scales
-    python convert2omezarr.py --czifile WP96_plate.czi
+    python convert2omezarr.py --czifile myimage.czi
 
     # Use specific multiscale factors
-    python convert2omezarr.py --czifile WP96_plate.czi --scales [2,4,8]
+    python convert2omezarr.py --czifile myimage.czi --scales [2,4,8]
 
     # Use OME-ZARR format explicitly with custom scales
-    python convert2omezarr.py --czifile WP96_plate.czi --use_omezarr --scales [1,2,4,8]
+    python convert2omezarr.py --czifile myimage.czi --use_omezarr --scales [1,2,4,8]
 
     # Use NGFF-ZARR format explicitly  
-    python convert2omezarr.py --czifile WP96_plate.czi --use_ngffzarr --scales [2,4]
+    python convert2omezarr.py --czifile myimage.czi --use_ngffzarr --scales [2,4]
 
     # Specify custom output path and scales
-    python convert2omezarr.py --czifile WP96_plate.czi --zarr /path/to/output.ome.zarr --scales [1,2,4]
+    python convert2omezarr.py --czifile myimage.czi --zarr /path/to/output.ome.zarr --scales [1,2,4]
 
     # Enable overwrite mode to replace existing files
-    python convert2omezarr.py --czifile WP96_plate.czi --overwrite --scales [2,4,8,16]
+    python convert2omezarr.py --czifile myimage.czi --overwrite --scales [2,4,8,16]
 
 Notes:
     - If no format is specified, NGFF-ZARR format is used by default (recommended)
     - Scales must be specified as a list in brackets: [2,4,8] or [1,2,4]
     - The output format follows the OME-NGFF specification
-    - Data is organized in a plate/well/field hierarchy
     - All conversion logs are saved to '<input_filename>_hcs_omezarr.log'
         """,
     )

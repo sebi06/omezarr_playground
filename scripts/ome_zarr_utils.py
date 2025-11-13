@@ -95,7 +95,7 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
     logger.info(f"Input CZI file: {Path(czi_filepath).absolute()}")
 
     # Define output path
-    zarr_output_path = Path(czi_filepath[:-4] + "HCSplate.ome.zarr")
+    zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ome.zarr")
 
     # Handle existing files
     if zarr_output_path.exists():
