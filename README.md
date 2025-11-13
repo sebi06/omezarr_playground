@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
 ## Convert CZI to OME-ZARR: convert2omezarr.py
 
-The tool can be used from the commadline:
+The tool can be used from the commandline:
 
 ```bash
 python convert2omezarr.py --czifile ../data/CellDivision5D.czi --use_ngffzarr --scales [2,4] --overwrite
