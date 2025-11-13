@@ -604,6 +604,8 @@ def write_omezarr_ngff(
     scale_factors: list = [2, 4, 8],
     overwrite: bool = False,
     version: str = "0.5",
+    chunks: Union[tuple, None] = None,
+    chunks_per_shard: Union[Dict[str, int], int, None] = None,
     log_file_path: str = None,
 ) -> Optional[nz.NgffImage]:
     """
@@ -613,6 +615,14 @@ def write_omezarr_ngff(
     for efficient visualization and analysis.
 
     Args:
+        array5d: Input 5D array (numpy, xarray, or dask array) with dimensions (t, c, z, y, x)
+        zarr_path: Path where the OME-ZARR NGFF file should be written
+        metadata: Metadata object containing information about the image
+        scale_factors: List of scale factors for generating multi-scale pyramids (default: [2, 4, 8])
+        overwrite: If True, remove existing file at zarr_path before writing (default: False)
+        version: NGFF version to use (default: "0.5")
+        chunks: Tuple specifying chunk size for the array (default: None)
+        chunks_per_shard: Number of chunks per shard for storage optimization (default: 2)
         log_file_path: Path to log file. If None, creates default log file based on zarr filename.
     """
     # Set up logging if not already configured
@@ -658,13 +668,9 @@ def write_omezarr_ngff(
         image, scale_factors=scale_factors, chunks=chunks, method=nz.Methods.DASK_IMAGE_GAUSSIAN
     )
 
-    # define chunks per shard
-    # chunks_per_shard={'z':4, 'y':2, 'x':2}
-    chunks_per_shard = 2
-
     # write using ngff-zarr
     nz.to_ngff_zarr(
-        zarr_path, version="0.5", chunks_per_shard=chunks_per_shard, use_tensorstore=False, multiscales=multiscales
+        zarr_path, version=version, chunks_per_shard=chunks_per_shard, use_tensorstore=False, multiscales=multiscales
     )
 
     logger.info("=" * 80)

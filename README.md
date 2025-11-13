@@ -249,11 +249,17 @@ Notes:
     - All conversion logs are saved to '<input_filename>_hcs_omezarr.log'
 ```
 
-### HCS Conversion Example Notebook
+### CZI - Normal Conversion Example Notebook
 
-The process of converting an CZI to an HCS OME-ZARR is explained in more detail here:
+The process of converting an CZI to a normal OME-ZARR is explained in more detail here:
 
-Jupyter Notebook - Conversion: [convert_czi2hcs_omezarr.ipynb](scripts/convert_czi2hcs_omezarr.ipynb)
+Jupyter Notebook - Conversion: [convert_czi2hcs_omezarr.ipynb](scripts/convert_czi2_omezarr.ipynb)
+
+### CZI - HCS Conversion Example Notebook
+
+The process of converting an CZI to a HCS OME-ZARR is explained in more detail here:
+
+Jupyter Notebook - HCS Conversion: [convert_czi2hcs_omezarr.ipynb](scripts/convert_czi2hcs_omezarr.ipynb)
 
 ## Analyze and HCS OME-ZARR
 
