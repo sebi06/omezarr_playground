@@ -574,31 +574,6 @@ def write_omezarr(
     # Build channel metadata for OMERO visualization
     channels_list = create_channel_list(metadata)
 
-    # # Process each channel to extract display settings and metadata
-    # for ch_index in range(metadata.image.SizeC):
-    #     # Extract RGB color from channel metadata (skip first 3 chars, get hex color)
-    #     rgb = metadata.channelinfo.colors[ch_index][3:]
-    #     # Get channel name for display
-    #     chname = metadata.channelinfo.names[ch_index]
-
-    #     # Calculate display range (min/max intensity values) from CZI metadata
-    #     lower, higher, maxvalue = get_display(metadata, ch_index)
-
-    #     # Create channel configuration for OMERO viewer
-    #     channels_list.append(
-    #         {
-    #             "color": rgb,  # Hex color code for visualization
-    #             "label": chname,  # Display name for the channel
-    #             "active": True,  # Channel visible by default
-    #             "window": {  # Intensity display range
-    #                 "min": lower,  # Absolute minimum value
-    #                 "start": lower,  # Display window start
-    #                 "end": higher,  # Display window end
-    #                 "max": maxvalue,  # Absolute maximum value
-    #             },
-    #         }
-    #     )
-
     # Add OMERO metadata for proper visualization in compatible viewers
     ome_zarr.writer.add_metadata(
         root,
