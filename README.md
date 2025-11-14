@@ -23,7 +23,23 @@ This content of this repository is free to use for everybody and purely experime
 
 **By using any of those examples you agree to this disclaimer.**
 
-Playground to check out OME-ZARR related top
+## Prerequisites
+
+### Install python base  environment (miniconda etc.)
+
+- Download and install Miniconda if needed: [Download Miniconda](https://www.anaconda.com/download/success)
+- Install Jupyter & Co
+
+```cmd
+conda activate base
+conda install jupyterlab jupyter_server nb_conda_kernels
+```
+
+To run the notebooks locally it is recommended to create a fresh conda environment. Please feel free to use the provided [YML file](omezarr_env.yml) (at your own risk) to create such an environment:
+
+```cmd
+conda env create --file omezarr_env.yml
+```
 
 ## Utilities: ome_zarr_utils.py
 
