@@ -23,35 +23,48 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(log_file_path: str = None, log_level: int = logging.INFO):
+def setup_logging(log_file_path: str = None, log_level: int = logging.INFO, force_reconfigure: bool = False):
     """
     Set up logging configuration consistently across all functions.
 
     Args:
         log_file_path: Path to log file. If None, creates a default log file.
         log_level: Logging level (default: INFO)
+        force_reconfigure: If True, reconfigure even if logging is already set up
     """
     # Get the root logger
     root_logger = logging.getLogger()
+
+    # Check if logging is already configured with file handler
+    has_file_handler = any(isinstance(h, logging.FileHandler) for h in root_logger.handlers)
+    has_console_handler = any(
+        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) for h in root_logger.handlers
+    )
+
+    # If logging is already properly configured and we're not forcing reconfiguration, skip
+    if has_file_handler and has_console_handler and not force_reconfigure:
+        return root_logger
+
     root_logger.setLevel(log_level)
 
-    # Clear any existing handlers to avoid conflicts
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
+    # Clear any existing handlers only if we're reconfiguring
+    if force_reconfigure or not (has_file_handler and has_console_handler):
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
 
-    # Set up formatter
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        # Set up formatter
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-    # Add console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
+        # Add console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
 
-    # Add file handler if log_file_path is provided
-    if log_file_path:
-        file_handler = logging.FileHandler(str(log_file_path))
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
+        # Add file handler if log_file_path is provided
+        if log_file_path:
+            file_handler = logging.FileHandler(str(log_file_path))
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
 
     return root_logger
 
@@ -311,7 +324,11 @@ def define_plate_by_well_count(well_count: int, field_count: int = 1) -> Plate:
 
 
 def convert_czi2hcs_ngff(
-    czi_filepath: str, plate_name: str = "Automated Plate", overwrite: bool = True, log_file_path: str = None
+    czi_filepath: str,
+    plate_name: str = "Automated Plate",
+    overwrite: bool = True,
+    log_file_path: str = None,
+    version: str = "0.5",
 ) -> str:
     """Convert CZI file to OME-ZARR HCS format using NGFF-ZARR package.
 
@@ -320,6 +337,7 @@ def convert_czi2hcs_ngff(
         plate_name: Name of the well plate for metadata
         overwrite: If True, removes existing zarr files at the output path
         log_file_path: Path to log file. If None, creates default log file based on input filename.
+        version: NGFF version to use (default: "0.5")
 
     Returns:
         str: Path to the output ZARR file
@@ -379,7 +397,9 @@ def convert_czi2hcs_ngff(
                 )
             )
 
-    plate = Plate(columns=columns, rows=rows, wells=wells, name=plate_name, field_count=len(field_paths))
+    plate = Plate(
+        columns=columns, rows=rows, wells=wells, name=plate_name, field_count=len(field_paths), version=version
+    )
 
     # Create the HCS plate structure
     hcs_plate = HCSPlate(store=zarr_output_path, plate_metadata=plate)
@@ -417,6 +437,7 @@ def convert_czi2hcs_ngff(
                 column_name=col_name,
                 field_index=fi,  # First field of view
                 acquisition_id=0,
+                version=version,
             )
 
     logger.info("=" * 80)
