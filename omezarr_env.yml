@@ -1,5 +1,3 @@
-# Tested on Windows only (but should also work for Linux)
-#
 # Disclaimer:
 #
 # The author(s) undertakes no warranty concerning the use of this YML file. Use at your own risk.
@@ -60,7 +58,6 @@ dependencies:
       - napari-layer-details-display
       - napari-ome-zarr
       - napari-plugin-search
-      #- napari-ome-zarr-navigator
       - napari-skimage-regionprops
       - ngff-zarr
       - ngff-zarr[dask-image]
