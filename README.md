@@ -1,5 +1,26 @@
 # CZI OME-ZARR Playground
 
+This is a "playground" to try out and play with CZI image files and OME-ZARR related. It contains scripts and notebooks:
+
+- convert CZI --> OME-ZARR using
+  - [OME-ZARR](https://pypi.org/project/ome-zarr/) python package
+  - [NGFF-ZARR](https://pypi.org/project/ngff-zarr/) python package
+  - convert to "normal" OME-ZARR files or to OME-ZARR using the HCS layout (wellplates)
+  - resulting images will be opened inside the [Napari Viewer](https://napari.org/stable/) using the [napari-ome-zarr](https://napari-hub.org/plugins/napari-ome-zarr.html) plugin
+  - example CZI image data for both cases are provided - see "./data" folder
+- the conversions can be test by running:
+  - scripts
+  - CMD tools
+  - notebooks
+- "analyze" HCS OME-ZARR by using some simple processing function
+- visualize the results as an heatmap
+
+## Disclaimer
+
+This content of this repository is free to use for everybody and purely experimental. The authors undertakes no warranty concerning the use of those scripts, image analysis settings and ZEN experiments, especially not for the examples using 3rd python modules. Use them on your own risk.
+
+**By using any of those examples you agree to this disclaimer.**
+
 Playground to check out OME-ZARR related top
 
 ## Utilities: ome_zarr_utils.py
