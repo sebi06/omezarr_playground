@@ -31,15 +31,14 @@ def main() -> None:
 
     # ========== Configuration Parameters ==========
     # Toggle to display the result in napari viewer (requires napari installation)
-    show_napari: bool = False
+    show_napari: bool = True
 
     # Mode selection: True for HCS (multi-well plate), False for standard OME-ZARR
-    write_hcs: bool = True
-    write_zarr: bool = False  # Toggle for standard OME-ZARR conversion
+    write_hcs: bool = False
 
     # Backend library selection: OME_ZARR (ome-zarr-py) or NGFF_ZARR (ngff-zarr)
-    # ome_package = omezarr_package.OME_ZARR
-    ome_package = omezarr_package.NGFF_ZARR
+    ome_package = omezarr_package.OME_ZARR
+    # ome_package = omezarr_package.NGFF_ZARR
 
     # Scene ID for non-HCS format (ignored if write_hcs=True)
     scene_id: int = 0
@@ -49,8 +48,8 @@ def main() -> None:
     # filepath: str = str(Path(__file__).parent.parent.parent / "data" / "WP96_4Pos_B4-10_DAPI.czi")
 
     # Option 2: Use absolute path to external test data
-    # filepath: str = r"F:\Github\omezarr_playground\data\CellDivision5D.czi"
-    filepath: str = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI.czi"
+    filepath: str = r"F:\Github\omezarr_playground\data\CellDivision5D.czi"
+    # filepath: str = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI.czi"
 
     # ========== Setup Logging (Master Log File) ==========
     czi_path = Path(filepath)
@@ -87,7 +86,7 @@ def main() -> None:
         logger.info("Validation successful - HCS metadata conforms to specification.")
 
     # ========== Standard OME-ZARR Conversion (Non-HCS) ==========
-    elif write_zarr:
+    elif not write_hcs:
         logger.info(f"Converting CZI scene {scene_id} to standard OME-ZARR format...")
 
         # Read the CZI file as a 6D array with dimension order STCZYX(A)

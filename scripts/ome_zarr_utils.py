@@ -572,32 +572,32 @@ def write_omezarr(
     )
 
     # Build channel metadata for OMERO visualization
-    channels_list = []
+    channels_list = create_channel_list(metadata)
 
-    # Process each channel to extract display settings and metadata
-    for ch_index in range(metadata.image.SizeC):
-        # Extract RGB color from channel metadata (skip first 3 chars, get hex color)
-        rgb = metadata.channelinfo.colors[ch_index][3:]
-        # Get channel name for display
-        chname = metadata.channelinfo.names[ch_index]
+    # # Process each channel to extract display settings and metadata
+    # for ch_index in range(metadata.image.SizeC):
+    #     # Extract RGB color from channel metadata (skip first 3 chars, get hex color)
+    #     rgb = metadata.channelinfo.colors[ch_index][3:]
+    #     # Get channel name for display
+    #     chname = metadata.channelinfo.names[ch_index]
 
-        # Calculate display range (min/max intensity values) from CZI metadata
-        lower, higher, maxvalue = get_display(metadata, ch_index)
+    #     # Calculate display range (min/max intensity values) from CZI metadata
+    #     lower, higher, maxvalue = get_display(metadata, ch_index)
 
-        # Create channel configuration for OMERO viewer
-        channels_list.append(
-            {
-                "color": rgb,  # Hex color code for visualization
-                "label": chname,  # Display name for the channel
-                "active": True,  # Channel visible by default
-                "window": {  # Intensity display range
-                    "min": lower,  # Absolute minimum value
-                    "start": lower,  # Display window start
-                    "end": higher,  # Display window end
-                    "max": maxvalue,  # Absolute maximum value
-                },
-            }
-        )
+    #     # Create channel configuration for OMERO viewer
+    #     channels_list.append(
+    #         {
+    #             "color": rgb,  # Hex color code for visualization
+    #             "label": chname,  # Display name for the channel
+    #             "active": True,  # Channel visible by default
+    #             "window": {  # Intensity display range
+    #                 "min": lower,  # Absolute minimum value
+    #                 "start": lower,  # Display window start
+    #                 "end": higher,  # Display window end
+    #                 "max": maxvalue,  # Absolute maximum value
+    #             },
+    #         }
+    #     )
 
     # Add OMERO metadata for proper visualization in compatible viewers
     ome_zarr.writer.add_metadata(
@@ -626,7 +626,7 @@ def write_omezarr_ngff(
     overwrite: bool = False,
     version: str = "0.5",
     chunks: Union[tuple, None] = None,
-    chunks_per_shard: Union[Dict[str, int], int, None] = None,
+    chunks_per_shard: Union[Dict[str, int], int, None] = 2,
     log_file_path: str = None,
 ) -> Optional[nz.NgffImage]:
     """
@@ -681,13 +681,33 @@ def write_omezarr_ngff(
         name=metadata.filename[:-4] + ".ome.zarr",
     )
 
-    # define chuunk size
-    chunks = (1, array5d.shape[1], array5d.shape[2], array5d.shape[3], array5d.shape[4])
+    # define chunk size
+    if chunks is None:
+        chunks = (1, array5d.shape[1], array5d.shape[2], array5d.shape[3], array5d.shape[4])
 
     # create multi-scaled, chunked data structure from the image
     multiscales = nz.to_multiscales(
         image, scale_factors=scale_factors, chunks=chunks, method=nz.Methods.DASK_IMAGE_GAUSSIAN
     )
+
+    # add omera metadata for proper visualization
+    channels_list = create_channel_list(metadata)
+
+    channels = []
+    for ch in channels_list:
+        omero_channel = nz.OmeroChannel(
+            color=ch["color"],
+            window=nz.OmeroWindow(
+                min=ch["window"]["min"],
+                max=ch["window"]["max"],
+                start=ch["window"]["start"],
+                end=ch["window"]["end"],
+            ),
+            label=ch["label"],
+        )
+        channels.append(omero_channel)
+
+    multiscales.metadata.omero = nz.Omero(channels=channels)
 
     # write using ngff-zarr
     nz.to_ngff_zarr(
@@ -700,3 +720,36 @@ def write_omezarr_ngff(
     logger.info("=" * 80)
 
     return image
+
+
+def create_channel_list(metadata: CziMetadata) -> list:
+
+    # Build channel metadata for OMERO visualization
+    channels_list = []
+
+    # Process each channel to extract display settings and metadata
+    for ch_index in range(metadata.image.SizeC):
+        # Extract RGB color from channel metadata (skip first 3 chars, get hex color)
+        rgb = metadata.channelinfo.colors[ch_index][3:]
+        # Get channel name for display
+        chname = metadata.channelinfo.names[ch_index]
+
+        # Calculate display range (min/max intensity values) from CZI metadata
+        lower, higher, maxvalue = get_display(metadata, ch_index)
+
+        # Create channel configuration for OMERO viewer
+        channels_list.append(
+            {
+                "color": rgb,  # Hex color code for visualization
+                "label": chname,  # Display name for the channel
+                "active": True,  # Channel visible by default
+                "window": {  # Intensity display range
+                    "min": lower,  # Absolute minimum value
+                    "start": lower,  # Display window start
+                    "end": higher,  # Display window end
+                    "max": maxvalue,  # Absolute maximum value
+                },
+            }
+        )
+
+    return channels_list
