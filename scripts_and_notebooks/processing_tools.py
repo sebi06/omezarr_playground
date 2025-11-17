@@ -21,7 +21,7 @@ from skimage.filters import threshold_triangle, median, gaussian
 from skimage.measure import label, regionprops_table, find_contours
 from skimage.morphology import remove_small_objects, disk, ball, remove_small_holes
 from skimage.morphology import white_tophat, black_tophat
-from skimage import measure, segmentation
+from skimage import segmentation
 from skimage.filters import threshold_otsu
 from skimage.color import label2rgb
 from skimage.util import invert
@@ -32,6 +32,10 @@ from czitools.metadata_tools import czi_metadata as czimd
 from czitools.utils import misc
 from pylibCZIrw import czi as pyczi
 from tqdm.contrib.itertools import product
+from shapely.geometry import Polygon
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ArrayProcessor:
@@ -56,6 +60,12 @@ class ArrayProcessor:
 
     apply_threshold(value: int, invert_result: bool = False) -> np.ndarray:
         Applies a threshold to the array with the given value and optionally inverts the result.
+
+    apply_semantic_seg(inferencer: OnnxInferencer, class_index: int, use_gpu: bool = False) -> np.ndarray:
+        Applies semantic segmentation to the array using the given inferencer and class index.
+
+    apply_regression(inferencer: OnnxInferencer, use_gpu: bool = False) -> np.ndarray:
+        Applies regression to the array using the given inferencer.
 
     count_objects(min_size: int = 10, label_rgb: bool = True, bg_label: int = 0) -> Tuple[np.ndarray, int]:
         Counts the objects in the array that are larger than the given size and optionally labels them in RGB.

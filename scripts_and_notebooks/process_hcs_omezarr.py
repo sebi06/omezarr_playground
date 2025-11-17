@@ -17,6 +17,7 @@ def process_hcs_omezarr(
 ):
     """
     Process an HCS OME-ZARR file to analyze wells and generate heatmaps.
+    Currently only simple 2D images are supported.
 
     Parameters:
         hcs_omezarr_path (str): Path to the HCS OME-ZARR file.
@@ -79,7 +80,7 @@ def process_hcs_omezarr(
                     f"Processing well: {well_meta.path} - Field {field_idx} data shape: {data.shape}, dtype: {data.dtype}"
                 )
 
-                # count objects
+                # feel free to add you own processing steps here
                 ap = ArrayProcessor(np.squeeze(data[:, channel2analyze, ...]))  # 2D data as input
                 pro2d = ap.apply_otsu_threshold()
                 ap = ArrayProcessor(pro2d)

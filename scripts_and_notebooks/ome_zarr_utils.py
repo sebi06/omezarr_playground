@@ -153,6 +153,7 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
         current_well_id = wp.replace("/", "")
         for fi, field in enumerate(field_paths):
             image_group = well_group.require_group(str(field))
+            # get the current scene index
             current_scene_index = mdata.sample.well_scene_indices[current_well_id][fi]
             logger.info(f"Writing Well: {wp}, Field: {field}, Scene Index: {current_scene_index}")
 

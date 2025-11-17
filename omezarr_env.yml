@@ -9,7 +9,6 @@ channels:
 dependencies:
   - python=3.13
   - colormap
-  #- czifile
   - dask
   - dask-image
   - docutils
@@ -40,6 +39,7 @@ dependencies:
   - xarray[complete]
   - xmltodict
   - zarr
+  - altair
 
   - pip:
       - aicspylibczi>=3.3.1
@@ -63,6 +63,7 @@ dependencies:
       - ngff-zarr[dask-image]
       - ngff-zarr[validate]
       - pylibCZIrw
+      - marimo
 
 # Create an environment - use conda or mamba
 # conda env create --file omezarr_env.yml

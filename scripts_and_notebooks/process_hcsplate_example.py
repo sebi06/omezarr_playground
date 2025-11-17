@@ -5,8 +5,13 @@ import matplotlib.pyplot as plt
 # Main execution
 if __name__ == "__main__":
 
-    hcs_omezarr_path = r"F:\Testdata_Zeiss\CZI_Testfiles\testwell96_HCSplate.ome.zarr"
-    channel2analyze = 0  # Index of the channel to analyze
+    # adapt the path to your needs
+    hcs_omezarr_path = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI_HCSplate.ome.zarr"
+
+    # Index of the channel to analyze
+    channel2analyze = 0
+
+    # define measurement properties to extract
     measure_properties = ("label", "area", "centroid", "bbox")
 
     results_obj = process_hcs_omezarr(

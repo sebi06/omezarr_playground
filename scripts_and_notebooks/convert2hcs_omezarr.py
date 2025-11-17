@@ -9,7 +9,7 @@ Usage:
     python convert2hcs_omezarr.py --czifile path/to/file.czi [OPTIONS]
 
 Example:
-    python convert2hcs_omezarr.py --czifile WP96_plate.czi --plate_name "Experiment_001" --overwrite
+    python convert2hcs_omezarr.py --czifile WP96_plate.czi --plate "Experiment_001" --overwrite
 """
 
 import argparse
