@@ -84,7 +84,7 @@ def main() -> None:
         # Validate the HCS-ZARR file against OME-NGFF specification
         # This ensures proper metadata structure for multi-well plate data
         logger.info("Validating created HCS-ZARR file against schema...")
-        _ = nz.from_hcs_zarr(zarr_output_path, validate=True)
+        hcs_plate = nz.from_hcs_zarr(zarr_output_path, validate=True)
         logger.info("Validation successful - HCS metadata conforms to specification.")
 
     # ========== Standard OME-ZARR Conversion (Non-HCS) ==========
@@ -127,13 +127,13 @@ def main() -> None:
         try:
             import napari
 
-            logger.info("🔍 Opening ZARR file in napari viewer...")
+            logger.info("Opening ZARR file in napari viewer...")
             viewer = napari.Viewer()
             viewer.open(zarr_output_path, plugin="napari-ome-zarr")
             napari.run()
         except ImportError:
-            logger.warning("⚠️ napari is not installed. Skipping visualization.")
-            logger.info("💡 Install with: pip install napari[all] napari-ome-zarr")
+            logger.warning("Napari is not installed. Skipping visualization.")
+            logger.info("Install with: pip install napari[all] napari-ome-zarr")
 
 
 if __name__ == "__main__":

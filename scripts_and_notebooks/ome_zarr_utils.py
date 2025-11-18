@@ -407,10 +407,9 @@ def convert_czi2hcs_ngff(
     to_hcs_zarr(hcs_plate, zarr_output_path)
 
     for well in wells:
-        print(f"Creatingw Well: {well.path}")
         row_name, col_name = well.path.split("/")
         current_well_id = well.path.replace("/", "")
-        print(f"Current WellID: {current_well_id} Row: {row_name}, Column: {col_name}")
+        logger.info(f"Creating WellID: {current_well_id} Row: {row_name}, Column: {col_name}")
         for fi, field in enumerate(field_paths):
             current_scene_index = mdata.sample.well_scene_indices[current_well_id][fi]
 
@@ -543,7 +542,7 @@ def write_omezarr(
 
     # Validate input array dimensions - OME-ZARR supports up to 5D
     if len(array5d.shape) > 5:
-        print("Input array as more than 5 dimensions.")
+        logger.info("Input array as more than 5 dimensions.")
         return None
 
     # Handle existing files based on overwrite parameter
@@ -552,12 +551,12 @@ def write_omezarr(
         shutil.rmtree(zarr_path, ignore_errors=False, onerror=None)
     elif Path(zarr_path).exists() and not overwrite:
         # Exit early if file exists and overwrite is disabled
-        print(f"File already exists at {zarr_path}. Set overwrite=True to remove.")
+        logger.info(f"File already exists at {zarr_path}. Set overwrite=True to remove.")
         return None
 
     # Display the NGFF specification version being used
     ngff_version = ome_zarr.format.CurrentFormat().version
-    print(f"Using ngff format version: {ngff_version}")
+    logger.info(f"Using ngff format version: {ngff_version}")
 
     # Initialize zarr store and create root group
     store = parse_url(zarr_path, mode="w").store
@@ -639,14 +638,14 @@ def write_omezarr_ngff(
 
     # Validate input array dimensions - OME-ZARR supports up to 5D
     if len(array5d.shape) > 5:
-        print("Input array as more than 5 dimensions.")
+        logger("Input array as more than 5 dimensions.")
         return None
 
     # check if zarr_path already exits
     if Path(zarr_path).exists() and overwrite:
         shutil.rmtree(zarr_path, ignore_errors=False, onerror=None)
     elif Path(zarr_path).exists() and not overwrite:
-        print(f"File already exists at {zarr_path}. Set overwrite=True to remove.")
+        logger.info(f"File already exists at {zarr_path}. Set overwrite=True to remove.")
         return None
 
     # create NGFF image from the array
