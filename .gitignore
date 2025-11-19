@@ -210,6 +210,7 @@ __marimo__/
 # specific files and folders generated during testing
 /_archive
 
-# exclude OME-ZARR files
+# exclude OME-ZARR, OZX and log files
 /data/**/*.ome.zarr
 /data/**/*.ozx
+/data/**/*.log
