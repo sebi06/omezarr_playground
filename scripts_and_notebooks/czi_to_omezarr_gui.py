@@ -44,31 +44,64 @@ import ngff_zarr as nz
 from importlib.metadata import version
 
 
-# Module-level variables to store application state
+# ============================================================================
+# Module-level Global Variables
+# ============================================================================
+# These variables maintain application state across callbacks and threads
+
+# Metadata from the currently loaded CZI file
 metadata: Optional[CziMetadata] = None
+
+# Maximum number of scenes in the current CZI file
 max_scenes: int = 1
+
+# Path to the currently selected CZI file
 selected_file: Optional[Path] = None
+
+# Flag indicating whether a conversion is currently in progress
 conversion_running: bool = False
+
+# Path to the current conversion log file
 log_file_path: Optional[Path] = None
+
+# Current read position in the log file for incremental updates
 log_last_position: int = 0
+
+# QTimer instance for periodic log file polling
 log_timer: Optional[QTimer] = None
-napari_viewer_path: Optional[str] = None  # Store path for napari to open on main thread
 
+# Path to napari viewer output (unused - kept for compatibility)
+napari_viewer_path: Optional[str] = None
+
+# Default parent directory for file browser
 try:
-    parent_dir = Path(__file__).parent.parent / "data"
+    parent_dir: Optional[Path] = Path(__file__).parent.parent / "data"
 except ValueError:
-    parent_dir = None
+    parent_dir: Optional[Path] = None
 
 
-def update_log_display():
-    """Update log viewer with new content from log file (called by timer)."""
+def update_log_display() -> None:
+    """Update log viewer widget with new content from the log file.
+
+    This function performs incremental reading of the log file by seeking to the
+    last read position and only reading new content. It's called periodically by
+    a QTimer during conversion to provide live log updates.
+
+    The function is thread-safe and designed to be called from the main Qt thread.
+
+    Note:
+        Uses global variables log_last_position and log_file_path to track state.
+    """
     global log_last_position, log_file_path
 
     if log_file_path and log_file_path.exists():
         try:
+            # Open log file and seek to last read position
             with open(log_file_path, "r", encoding="utf-8") as f:
                 f.seek(log_last_position)
                 new_content = f.read()
+
+                # Append new content to log viewer if any
                 if new_content:
                     log_viewer.value += new_content
                     log_last_position = f.tell()
@@ -76,17 +109,20 @@ def update_log_display():
             print(f"Log update error: {e}")
 
 
-def read_czi_metadata(filepath: Path):
+def read_czi_metadata(filepath: Path) -> tuple[Optional[CziMetadata], int]:
     """Read metadata from a CZI file and determine the number of scenes.
 
     Args:
-        filepath: Path to the CZI file
+        filepath: Path to the CZI file to read
 
     Returns:
-        tuple: (CziMetadata object or None, maximum number of scenes)
+        tuple[Optional[CziMetadata], int]: A tuple containing:
+            - CziMetadata object if successful, None if reading fails
+            - Maximum number of scenes (defaults to 1 if not specified or on error)
 
     Note:
-        Returns (None, 1) if metadata reading fails
+        Returns (None, 1) if metadata reading fails. The function prints progress
+        messages to console for user feedback.
     """
     try:
         # Read CZI metadata using czitools
@@ -316,44 +352,54 @@ version_grid.min_height = 60
 version_grid.max_height = 80
 
 
-def on_read_metadata_clicked():
-    """
-    Callback function for the 'Read Metadata' button.
+def on_read_metadata_clicked() -> None:
+    """Callback function for the 'Read Metadata' button.
 
-    Reads CZI metadata and updates the GUI state accordingly.
+    Reads CZI file metadata and updates GUI state:
+    - Validates file existence
+    - Loads and parses CZI metadata
+    - Updates scene selector visibility and range
+    - Displays metadata summary in info widget
+    - Enables convert button when successful
+
+    Note:
+        Updates global variables: metadata, max_scenes, selected_file
     """
     global metadata, max_scenes, selected_file
 
-    # Get current file path
+    # Get current file path from widget
     filepath = czi_to_omezarr_converter.czi_file.value
 
+    # Validate file existence
     if not filepath.exists():
         info_display.value = "❌ Error: File does not exist"
         return
 
-    # Read metadata
+    # Read metadata from CZI file
     info_display.value = "⏳ Reading metadata..."
     metadata, max_scenes = read_czi_metadata(filepath)
     selected_file = filepath
 
+    # Handle metadata reading failure
     if metadata is None:
         info_display.value = "❌ Error: Failed to read metadata"
         return
 
-    # Update scene slider visibility and range
+    # Determine scene selector visibility
+    # Show only if: NOT in HCS mode AND file has multiple scenes
     write_hcs = czi_to_omezarr_converter.write_hcs.value
     scene_selector_visible = (not write_hcs) and (max_scenes > 1)
 
-    # Update scene_id widget
+    # Configure scene_id widget properties
     czi_to_omezarr_converter.scene_id.visible = scene_selector_visible
     if max_scenes > 1:
         czi_to_omezarr_converter.scene_id.max = max_scenes - 1
         czi_to_omezarr_converter.scene_id.value = 0
 
-    # Enable the convert button
+    # Enable the convert button now that metadata is loaded
     convert_button.enabled = True
 
-    # Update info display with metadata summary
+    # Build and display metadata summary
     info_text = f"""✅ Metadata loaded successfully!
 
 📁 File: {filepath.name}
@@ -369,16 +415,29 @@ Ready to convert!
     info_display.value = info_text
 
 
-def finish_conversion(output_path: Optional[str], should_open_napari: bool = False):
-    """Finish conversion and update UI (called from main thread via timer)."""
+def finish_conversion(output_path: Optional[str], should_open_napari: bool = False) -> None:
+    """Finalize conversion process and update UI state.
+
+    This function is called from the main Qt thread after the background conversion
+    thread completes. It performs cleanup, final log reading, and optionally opens
+    the result in napari viewer.
+
+    Args:
+        output_path: Path to the generated OME-ZARR file, or None if conversion failed
+        should_open_napari: If True, open the output in napari viewer
+
+    Note:
+        Must be called from the main Qt thread to safely update UI widgets.
+        Uses global variables log_timer and log_file_path.
+    """
     global log_timer, log_file_path
 
-    # Stop the timer
+    # Stop the log polling timer
     if log_timer:
         log_timer.stop()
         log_timer = None
 
-    # Final log file read to ensure we got everything
+    # Perform final complete read of log file to capture all content
     if log_file_path and log_file_path.exists():
         try:
             with open(log_file_path, "r", encoding="utf-8") as f:
@@ -408,11 +467,21 @@ def finish_conversion(output_path: Optional[str], should_open_napari: bool = Fal
     convert_button.enabled = True
 
 
-def on_convert_clicked():
-    """
-    Callback function for the 'Convert to OME-ZARR' button.
+def on_convert_clicked() -> None:
+    """Callback function for the 'Convert to OME-ZARR' button.
 
-    Validates inputs and performs the conversion.
+    This function orchestrates the entire conversion process:
+    1. Validates that a file is selected and metadata has been read
+    2. Clears previous log content and updates UI state
+    3. Starts a background thread for conversion
+    4. Sets up a QTimer to poll for conversion completion and update logs
+
+    The conversion runs in a separate thread to prevent UI freezing, while
+    a QTimer on the main thread handles UI updates (thread-safe approach).
+
+    Note:
+        Uses multiple global variables to coordinate between UI thread and
+        conversion thread. Disables the convert button during processing.
     """
     global metadata, selected_file, conversion_running, log_file_path, log_last_position, log_timer
 
@@ -452,22 +521,32 @@ def on_convert_clicked():
     # Start timer to update log display every 500ms
     log_timer = QTimer()
 
-    def check_conversion_status():
-        """Check if conversion is complete and update UI accordingly."""
-        update_log_display()  # Update log
+    def check_conversion_status() -> None:
+        """Check if conversion is complete and update UI accordingly.
+
+        This function is called periodically by QTimer. It updates the log display
+        and checks if the background conversion thread has completed. When complete,
+        it triggers UI finalization on the main thread.
+        """
+        update_log_display()  # Update log with new content
 
         # Check if conversion is complete
         if conversion_result["completed"]:
             finish_conversion(conversion_result["output_path"], conversion_result["show_napari"])
 
     log_timer.timeout.connect(check_conversion_status)
-    log_timer.start(500)  # Update every 500ms
+    log_timer.start(500)  # Poll every 500ms
 
-    def run_conversion():
-        """Run conversion in background thread."""
+    def run_conversion() -> None:
+        """Run conversion in background thread.
+
+        This function executes in a separate daemon thread to prevent blocking
+        the Qt main thread. It performs the actual conversion and stores the
+        result in conversion_result dict for the main thread to process.
+        """
         global conversion_running
 
-        # Perform conversion
+        # Perform the conversion operation
         output_path = perform_conversion(
             filepath=czi_file,
             use_ozx=use_ozx,
@@ -487,12 +566,18 @@ def on_convert_clicked():
     conversion_thread.start()
 
 
-def on_write_hcs_changed(value: bool):
-    """
-    Callback for write_hcs checkbox changes.
+def on_write_hcs_changed(value: bool) -> None:
+    """Callback for write_hcs checkbox changes.
 
-    Controls visibility of scene selector based on HCS mode and scene count.
-    Also disables the single-file OME-ZARR option when HCS mode is enabled.
+    Controls UI state based on HCS mode selection:
+    - Hides scene selector in HCS mode (HCS processes all scenes automatically)
+    - Disables and unchecks single-file (.ozx) option in HCS mode (not supported)
+
+    Args:
+        value: True if HCS mode is enabled, False otherwise
+
+    Note:
+        Uses global max_scenes variable to determine scene selector visibility.
     """
     global max_scenes
 
@@ -506,11 +591,18 @@ def on_write_hcs_changed(value: bool):
         czi_to_omezarr_converter.use_ozx.value = False
 
 
-def on_package_choice_changed(value: omezarr_package):
-    """
-    Callback for package_choice changes.
+def on_package_choice_changed(value: omezarr_package) -> None:
+    """Callback for package_choice changes.
 
-    Disables the single-file OME-ZARR option when ome-zarr-py is selected.
+    Manages single-file (.ozx) option availability based on selected backend:
+    - ome-zarr-py: Does not support .ozx format, so option is disabled
+    - ngff-zarr: Supports .ozx format, so option is enabled (unless HCS mode)
+
+    Args:
+        value: The selected OME-ZARR backend package
+
+    Note:
+        The single-file option may remain disabled if HCS mode is active.
     """
     # Disable single-file option for ome-zarr-py package
     if value == omezarr_package.OME_ZARR:
@@ -522,12 +614,20 @@ def on_package_choice_changed(value: omezarr_package):
         czi_to_omezarr_converter.use_ozx.enabled = not write_hcs
 
 
-def on_file_changed(value: Path):
-    """
-    Callback for file selector changes.
+def on_file_changed(value: Path) -> None:
+    """Callback for file selector changes.
 
-    Adjusts the width of the file selector to accommodate the selected file path.
-    Also clears the metadata info display and log viewer when a new file is selected.
+    This function handles UI updates when a new CZI file is selected:
+    1. Dynamically adjusts file selector width based on path length (600-1200px)
+    2. Resets application state (clears metadata, logs, and UI displays)
+    3. Disables convert button until metadata is read for the new file
+
+    Args:
+        value: Path to the newly selected CZI file
+
+    Note:
+        Uses global variables metadata and max_scenes to reset application state.
+        This ensures a clean state when switching between files.
     """
     global metadata, max_scenes
 
@@ -548,14 +648,19 @@ def on_file_changed(value: Path):
         convert_button.enabled = False
 
 
-# Set initial width of file selector
-# The @magicgui decorator creates widget attributes from the parameter definitions
+# ============================================================================
+# Widget Configuration and Callback Connections
+# ============================================================================
+
+# Set initial minimum width for file selector widget
+# The @magicgui decorator creates widget attributes from the function parameters
 try:
     czi_to_omezarr_converter.czi_file.min_width = 600
 except AttributeError as e:
     print(f"Warning: Could not set file selector width: {e}")
 
-# Connect callbacks
+# Connect callback functions to widget signals
+# These callbacks handle user interactions and maintain UI state consistency
 read_metadata_button.clicked.connect(on_read_metadata_clicked)
 convert_button.clicked.connect(on_convert_clicked)
 czi_to_omezarr_converter.write_hcs.changed.connect(on_write_hcs_changed)
@@ -568,12 +673,19 @@ czi_to_omezarr_converter.czi_file.changed.connect(on_file_changed)
 # ============================================================================
 
 
-def create_gui():
-    """
-    Create and return the complete GUI application.
+def create_gui() -> widgets.Container:
+    """Create and return the complete GUI application container.
+
+    Assembles all widgets into a single vertical container in the following order:
+    1. Version information display (top)
+    2. Main conversion configuration widget (file selector, options)
+    3. Read Metadata button
+    4. Status/metadata information display
+    5. Convert button
+    6. Conversion log viewer (bottom)
 
     Returns:
-        widgets.Container: The main application widget container
+        widgets.Container: The main application widget container with all components
     """
     # Create container with all widgets
     container = widgets.Container(
