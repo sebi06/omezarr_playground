@@ -16,10 +16,10 @@ MagicGUI Application for CZI to OME-ZARR Conversion
 
 This application provides a graphical user interface for converting Carl Zeiss Image (CZI)
 files to OME-ZARR format with support for:
-- Single-file OME-ZARR (.ozx) format
+- Single-file OME-ZARR (.ozx) format (NGFF-ZARR only right now)
 - HCS (High Content Screening) multi-well plate layouts
 - Multiple conversion backends (ome-zarr-py and ngff-zarr)
-- Interactive visualization with napari
+- Interactive visualization with napari (optional)
 """
 
 from pathlib import Path
