@@ -38,6 +38,10 @@ from czitools.read_tools import read_tools
 import logging
 import threading
 from qtpy.QtCore import QTimer
+import ome_zarr.format
+import zarr
+import ngff_zarr as nz
+from importlib.metadata import version
 
 
 # Module-level variables to store application state
@@ -294,6 +298,23 @@ log_viewer = widgets.TextEdit(
 log_viewer.min_height = 200  # Set minimum height for the log viewer
 log_viewer.read_only = True  # Make it read-only but scrollable
 
+# Create version info widget
+try:
+    version_info = f"""NGFF Version: {ome_zarr.format.CurrentFormat().version}
+ZARR Package: {zarr.__version__}
+NGFF-ZARR Package: {nz.__version__}
+OME-ZARR Package: {version('ome-zarr')}"""
+except Exception:
+    version_info = "Version information unavailable"
+
+version_grid = widgets.TextEdit(
+    value=version_info,
+    label="Package Versions",
+    enabled=False,
+)
+version_grid.min_height = 60
+version_grid.max_height = 80
+
 
 def on_read_metadata_clicked():
     """
@@ -336,12 +357,12 @@ def on_read_metadata_clicked():
     info_text = f"""✅ Metadata loaded successfully!
 
 📁 File: {filepath.name}
-📐 Dimensions: {metadata.aics_dims_shape}
+📐 Dimensions: {metadata.pyczi_dims}
 🔢 Number of scenes: {max_scenes}
 📊 Image size: {metadata.image.SizeX} × {metadata.image.SizeY}
 🎨 Channels: {metadata.image.SizeC}
 📚 Z-slices: {metadata.image.SizeZ}
-⏱️  Time points: {metadata.image.SizeT}
+⏱️ Time points: {metadata.image.SizeT}
 
 Ready to convert!
 """
@@ -485,6 +506,22 @@ def on_write_hcs_changed(value: bool):
         czi_to_omezarr_converter.use_ozx.value = False
 
 
+def on_package_choice_changed(value: omezarr_package):
+    """
+    Callback for package_choice changes.
+
+    Disables the single-file OME-ZARR option when ome-zarr-py is selected.
+    """
+    # Disable single-file option for ome-zarr-py package
+    if value == omezarr_package.OME_ZARR:
+        czi_to_omezarr_converter.use_ozx.value = False
+        czi_to_omezarr_converter.use_ozx.enabled = False
+    else:
+        # Re-enable if not in HCS mode
+        write_hcs = czi_to_omezarr_converter.write_hcs.value
+        czi_to_omezarr_converter.use_ozx.enabled = not write_hcs
+
+
 def on_file_changed(value: Path):
     """
     Callback for file selector changes.
@@ -499,8 +536,8 @@ def on_file_changed(value: Path):
         czi_to_omezarr_converter.czi_file.min_width = new_width
 
 
-# Set initial width of file selector to be much wider
-# Note: The @magicgui decorator creates widget attributes from the parameter definitions
+# Set initial width of file selector
+# The @magicgui decorator creates widget attributes from the parameter definitions
 try:
     czi_to_omezarr_converter.czi_file.min_width = 600
 except AttributeError as e:
@@ -510,6 +547,7 @@ except AttributeError as e:
 read_metadata_button.clicked.connect(on_read_metadata_clicked)
 convert_button.clicked.connect(on_convert_clicked)
 czi_to_omezarr_converter.write_hcs.changed.connect(on_write_hcs_changed)
+czi_to_omezarr_converter.package_choice.changed.connect(on_package_choice_changed)
 czi_to_omezarr_converter.czi_file.changed.connect(on_file_changed)
 
 
@@ -528,6 +566,7 @@ def create_gui():
     # Create container with all widgets
     container = widgets.Container(
         widgets=[
+            version_grid,
             czi_to_omezarr_converter,
             read_metadata_button,
             info_display,
@@ -556,6 +595,6 @@ if __name__ == "__main__":
     print("=" * 60)
     print("\nApplication started. Close the window to exit.")
 
-    # Show the GUI with custom window title (this blocks until the window is closed)
-    gui.show(run=True)
+    # Set window title before showing (this blocks until the window is closed)
     gui.native.setWindowTitle("CZI --> OME-ZARR Converter Playground")
+    gui.show(run=True)
