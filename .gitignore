@@ -205,11 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-/data/CellDivision5D_ngff.ome.zarr
-/data/CellDivision5D.ome.zarr
-/data/WP96_4Pos_B4-10_DAPI_HCSplate.ome.zarr
-/data/WP96_4Pos_B4-10_DAPIHCSplate.ome.zarr
+
+
+# specific files and folders generated during testing
 /_archive
-/data/WP96_4Pos_B4-10_DAPI_HCSplate.ozx
-/data/CellDivision5D_ngff.ozx
-/data/WP96_4Pos_B4-10_DAPI.ome.zarr
+
+# exclude OME-ZARR files
+/data/**/*.ome.zarr
+/data/**/*.ozx
