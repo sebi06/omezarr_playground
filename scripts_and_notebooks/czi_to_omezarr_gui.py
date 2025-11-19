@@ -527,13 +527,25 @@ def on_file_changed(value: Path):
     Callback for file selector changes.
 
     Adjusts the width of the file selector to accommodate the selected file path.
+    Also clears the metadata info display and log viewer when a new file is selected.
     """
+    global metadata, max_scenes
+
     if value and value.exists():
         # Calculate width based on file path length
         # Approximate: 7 pixels per character, with min 600 and max 1200
         path_length = len(str(value))
         new_width = min(max(600, path_length * 7), 1200)
         czi_to_omezarr_converter.czi_file.min_width = new_width
+
+        # Clear previous metadata and logs
+        metadata = None
+        max_scenes = 1
+        info_display.value = "Select a CZI file and click 'Read Metadata' to begin."
+        log_viewer.value = ""
+
+        # Reset convert button state
+        convert_button.enabled = False
 
 
 # Set initial width of file selector
