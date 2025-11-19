@@ -35,7 +35,11 @@ def main() -> None:
     show_napari: bool = False
 
     # Mode selection: True for HCS (multi-well plate), False for standard OME-ZARR
-    write_hcs: bool = True
+    write_hcs: bool = False
+    platename: str = "Test_Plate_01"
+
+    # use OZX (single file zipped OME-ZARR) - only works with NGFF-ZARR package (2025-11-19)
+    use_ozx: bool = True
 
     # Backend library selection: OME_ZARR (ome-zarr-py) or NGFF_ZARR (ngff-zarr)
     # ome_package = omezarr_package.OME_ZARR
@@ -49,8 +53,8 @@ def main() -> None:
     # filepath: str = str(Path(__file__).parent.parent.parent / "data" / "WP96_4Pos_B4-10_DAPI.czi")
 
     # Option 2: Use absolute path to external test data
-    # filepath: str = r"F:\Github\omezarr_playground\data\CellDivision5D.czi"
-    filepath: str = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI.czi"
+    filepath: str = r"F:\Github\omezarr_playground\data\CellDivision5D.czi"
+    # filepath: str = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI.czi"
     # filepath: str = r"F:\Testdata_Zeiss\OME_ZARR_Testfiles\384well_DAPI_sm.czi"
 
     # ========== Setup Logging (Master Log File) ==========
@@ -75,7 +79,7 @@ def main() -> None:
 
         elif ome_package == omezarr_package.NGFF_ZARR:
             logger.info("Using ngff-zarr package for HCS conversion...")
-            zarr_output_path = convert_czi2hcs_ngff(filepath, overwrite=True)
+            zarr_output_path = convert_czi2hcs_ngff(filepath, plate_name=platename, overwrite=True, use_ozx=use_ozx)
         else:
             raise ValueError(f"Unsupported ome_package: {ome_package}")
 
@@ -111,8 +115,13 @@ def main() -> None:
             logger.info(f"Written OME-ZARR using ome-zarr-py: {zarr_output_path}")
 
         elif ome_package == omezarr_package.NGFF_ZARR:
-            # Generate output path with _ngff.ome.zarr extension
-            zarr_output_path: Path = Path(str(filepath)[:-4] + "_ngff.ome.zarr")
+
+            if use_ozx:
+                # Generate output path with _ngff.ozx extension
+                zarr_output_path: Path = Path(str(filepath)[:-4] + "_ngff.ozx")
+            else:
+                # Generate output path with _ngff.ome.zarr extension
+                zarr_output_path: Path = Path(str(filepath)[:-4] + "_ngff.ome.zarr")
 
             # Write OME-ZARR using ngff-zarr backend with multi-resolution pyramid
             # scale_factors=[2, 4] creates 3 resolution levels (1x, 2x, 4x downsampled)

@@ -210,3 +210,6 @@ __marimo__/
 /data/WP96_4Pos_B4-10_DAPI_HCSplate.ome.zarr
 /data/WP96_4Pos_B4-10_DAPIHCSplate.ome.zarr
 /_archive
+/data/WP96_4Pos_B4-10_DAPI_HCSplate.ozx
+/data/CellDivision5D_ngff.ozx
+/data/WP96_4Pos_B4-10_DAPI.ome.zarr

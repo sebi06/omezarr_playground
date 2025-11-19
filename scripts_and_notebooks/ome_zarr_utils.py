@@ -435,7 +435,7 @@ def convert_czi2hcs_ngff(
                 plate_metadata=plate,
                 row_name=row_name,
                 column_name=col_name,
-                field_index=fi,  # First field of view
+                field_index=fi,
                 acquisition_id=0,
                 version=version,
             )
@@ -620,6 +620,7 @@ def write_omezarr_ngff(
         chunks: Tuple specifying chunk size for the array (default: None)
         chunks_per_shard: Number of chunks per shard for storage optimization (default: 2)
         log_file_path: Path to log file. If None, creates default log file based on zarr filename.
+        singe_file: If True, use single-file zarr storage *.ozx (default: False)
     """
     # Set up logging if not already configured
     if log_file_path is None:
