@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.17.7"
+__generated_with = "0.18.0"
 app = marimo.App(width="medium")
 
 
@@ -19,7 +19,6 @@ def _():
         import altair as alt
     except ImportError as e:
         print(f"Altair package not found: {e}")
-
     return (
         ArrayProcessor,
         Dict,
@@ -167,7 +166,7 @@ def _(Dict, alt, pd):
         Create an Altair heatmap visualization of well plate data with Marimo reactivity.
         (Fixes: Annotations use conditional color for maximum visibility.)
         """
-    
+
         # 1. Prepare Data into "Long" Format
         data_list = []
         for well_key, value in results.items():
@@ -177,10 +176,10 @@ def _(Dict, alt, pd):
                 'Column': int(col_name),
                 parameter: value
             })
-        
+
         df = pd.DataFrame(data_list)
         df['Column'] = df['Column'].astype(str)
-    
+
         # Define row and column order
         rows_labels = [chr(65 + i) for i in range(num_rows)]
         cols_labels = [str(i) for i in range(1, num_cols + 1)]
@@ -225,7 +224,7 @@ def _(Dict, alt, pd):
             # Dim unselected cells slightly
             opacity=alt.condition(marimo_selection, alt.value(1.0), alt.value(0.8))
         )
-    
+
         # 5. Add Annotation Layer (if requested)
         if annot:
             text_layer = base_chart.mark_text(
@@ -240,7 +239,7 @@ def _(Dict, alt, pd):
                     alt.value('white')   # For dark cells (low values), use white text
                 )
             )
-        
+
             final_chart = rect_layer + text_layer
         else:
             final_chart = rect_layer
@@ -293,7 +292,7 @@ def _(mo, well_selector):
         well_name = f"{selected_well['Row'].iloc[0]}/{selected_well['Column'].iloc[0]}"
         # Ensure 'Object Count' is accessed correctly
         value = selected_well.iloc[0]["Object Count"]
-    
+
         output_md = mo.md(f"""
             ### 🧪 Selected Well: **{well_name}**
             The **Object Count** for this well is: **{value:.0f}**

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def process_hcs_omezarr(
     hcs_omezarr_path: str, channel2analyze: int = 0, measure_properties=("label", "area", "centroid", "bbox")
-):
+) -> dict:
     """
     Process an HCS OME-ZARR file to analyze wells and generate heatmaps.
     Currently only simple 2D images are supported.
@@ -22,6 +22,9 @@ def process_hcs_omezarr(
     Parameters:
         hcs_omezarr_path (str): Path to the HCS OME-ZARR file.
         channel2analyze (int): Index of the channel to analyze.
+        measure_properties (tuple): Properties to measure for labeled objects.
+    Returns:
+        results_obj (dict): Dictionary with number of objects per well.
     """
 
     try:

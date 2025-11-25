@@ -36,14 +36,14 @@ def main() -> None:
     show_napari: bool = False
 
     # Mode selection: True for HCS (multi-well plate), False for standard OME-ZARR
-    write_hcs: bool = False
+    write_hcs: bool = True
     convert_hc2ozx_after_writing = False
     platename: str = "Test_Plate_01"
 
     # use OZX (single file zipped OME-ZARR) - only works with NGFF-ZARR package (2025-11-19)
     # NOTE: If you get PermissionError on Windows, disable antivirus or use write_hcs=False with use_ozx_write_directly=False?
     # Not working as of 2025-11-25 for HCS conversion
-    write_ozx_directly: bool = True  # Changed to False to avoid Windows file locking issues
+    write_ozx_directly: bool = False  # Changed to False to avoid Windows file locking issues
 
     # Backend library selection: OME_ZARR (ome-zarr-py) or NGFF_ZARR (ngff-zarr)
     # ome_package = omezarr_package.OME_ZARR
@@ -57,9 +57,9 @@ def main() -> None:
     # filepath: str = str(Path(__file__).parent.parent.parent / "data" / "WP96_4Pos_B4-10_DAPI.czi")
 
     # Option 2: Use absolute path to external test data
-    filepath: str = r"F:\Github\omezarr_playground\data\CellDivision5D.czi"
+    # filepath: str = r"F:\Github\omezarr_playground\data\CellDivision5D.czi"
     # filepath: str = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI.czi"
-    # filepath: str = r"F:\Testdata_Zeiss\OME_ZARR_Testfiles\384well_DAPI_sm.czi"
+    filepath: str = r"F:\Testdata_Zeiss\OME_ZARR_Testfiles\384well_DAPI_sm.czi"
 
     # ========== Setup Logging (Master Log File) ==========
     czi_path = Path(filepath)
