@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
 
     # adapt the path to your needs
-    hcs_omezarr_path = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI_HCSplate.ome.zarr"
+    # hcs_omezarr_path = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI_HCSplate.ome.zarr"
+    hcs_omezarr_path = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI_HCSplate.ozx"
 
     # Index of the channel to analyze
     channel2analyze = 0

@@ -7,9 +7,11 @@ from ome_zarr.writer import write_image, write_plate_metadata, write_well_metada
 import ome_zarr.writer
 import ome_zarr.format
 import shutil
+import os
 import ngff_zarr as nz
 from ngff_zarr.v04.zarr_metadata import Plate, PlateColumn, PlateRow, PlateWell
-from ngff_zarr.hcs import HCSPlate, to_hcs_zarr
+from ngff_zarr.hcs import HCSPlate, HCSPlateWriter, to_hcs_zarr
+from ngff_zarr import write_store_to_zip
 from dataclasses import dataclass
 from typing import Dict
 from enum import Enum, unique
@@ -18,6 +20,8 @@ import xarray as xr
 from typing import Union, Optional
 import dask.array as da
 import logging
+import time
+import gc
 
 # Get logger instance (logging configuration will be done by the main script)
 logger = logging.getLogger(__name__)
@@ -113,6 +117,7 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
     # Handle existing files
     if zarr_output_path.exists():
         if overwrite:
+            logger.info(f"Removing existing directory: {zarr_output_path}")
             shutil.rmtree(zarr_output_path)
         else:
             logger.info(f"File exists at {zarr_output_path}. Set overwrite=True to remove.")
@@ -324,12 +329,143 @@ def define_plate_by_well_count(well_count: int, field_count: int = 1) -> Plate:
     return plate_metadata
 
 
+# def convert_czi2hcs_ngff(
+#     czi_filepath: str,
+#     plate_name: str = "Automated Plate",
+#     overwrite: bool = True,
+#     log_file_path: str = None,
+#     use_ozx: bool = False,
+#     version: str = "0.5",
+# ) -> str:
+#     """Convert CZI file to OME-ZARR HCS format using NGFF-ZARR package.
+
+#     Args:
+#         czi_filepath: Path to the input CZI file
+#         plate_name: Name of the well plate for metadata
+#         overwrite: If True, removes existing zarr files at the output path
+#         log_file_path: Path to log file. If None, creates default log file based on input filename.
+#         use_ozx: If True, saves as single-file OZX format instead of directory
+#         version: NGFF version to use (default: "0.5")
+
+#     Returns:
+#         str: Path to the output ZARR file
+#     """
+#     # Set up logging if not already configured
+#     if log_file_path is None:
+#         czi_path = Path(czi_filepath)
+#         log_file_path = czi_path.parent / f"{czi_path.stem}_hcs_ngff.log"
+
+#     setup_logging(log_file_path)
+#     logger = logging.getLogger(__name__)
+
+#     logger.info("=" * 80)
+#     logger.info("CZI to HCS OME-ZARR Conversion Started (NGFF-ZARR format)")
+#     logger.info("=" * 80)
+#     logger.info(f"Input CZI file: {Path(czi_filepath).absolute()}")
+#     logger.info(f"Plate name: {plate_name}")
+
+#     # Define output path
+#     if not use_ozx:
+#         zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ome.zarr")
+#     else:
+#         zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ozx")
+
+#     # Handle existing files
+#     if zarr_output_path.exists():
+#         if overwrite:
+#             shutil.rmtree(zarr_output_path)
+#         else:
+#             logger.info(f"File exists at {zarr_output_path}. Set overwrite=True to remove.")
+#             return str(zarr_output_path)
+
+#     # Read CZI file
+#     array6d, mdata = read_tools.read_6darray(czi_filepath, use_xarray=True)
+
+#     # Extract plate layout
+#     row_names, col_names, well_paths = extract_well_coordinates(mdata.sample.well_counter)
+#     field_paths = [str(i) for i in range(mdata.sample.well_counter[mdata.sample.well_array_names[0]])]
+
+#     columns = [PlateColumn(name=str(col)) for col in sorted(col_names, key=int)]
+#     rows = [PlateRow(name=row) for row in sorted(row_names)]
+
+#     # Build wells list
+#     wells = []
+#     for row in rows:
+#         # Calculate row index for multi-character rows (A=0, B=1, ..., Z=25, AA=26, AB=27, etc.)
+#         row_index = 0
+#         for i, char in enumerate(reversed(row.name.upper())):
+#             row_index += (ord(char) - ord("A") + 1) * (26**i)
+#         row_index -= 1  # Convert to 0-based indexing
+
+#         for col in columns:
+#             # Column index: 1->0, 2->1, ... so 4->3, 10->9
+#             col_index = int(col.name) - 1
+#             wells.append(
+#                 PlateWell(
+#                     path=f"{row.name}/{col.name}",
+#                     rowIndex=row_index,
+#                     columnIndex=col_index,
+#                 )
+#             )
+
+#     plate_metadata = Plate(
+#         columns=columns, rows=rows, wells=wells, name=plate_name, field_count=len(field_paths), version=version
+#     )
+
+#     # Create the HCS plate structure
+#     hcs_plate = HCSPlate(store=zarr_output_path, plate_metadata=plate_metadata)
+#     to_hcs_zarr(hcs_plate, zarr_output_path)
+
+#     for well in wells:
+#         row_name, col_name = well.path.split("/")
+#         current_well_id = well.path.replace("/", "")
+#         logger.info(f"Creating WellID: {current_well_id} Row: {row_name}, Column: {col_name}")
+#         for fi, field in enumerate(field_paths):
+#             current_scene_index = mdata.sample.well_scene_indices[current_well_id][fi]
+
+#             logger.info(f"Writing Well: {well.path}, Field: {field}, Scene Index: {current_scene_index}")
+#             # create current field image
+#             current_field_image = nz.NgffImage(
+#                 data=array6d[current_scene_index, ...].data,
+#                 dims=["t", "c", "z", "y", "x"],
+#                 scale={"y": mdata.scale.Y, "x": mdata.scale.X, "z": mdata.scale.Z},
+#                 translation={"t": 0.0, "c": 0.0, "z": 0.0, "y": 0.0, "x": 0.0},
+#                 name=mdata.filename,
+#             )
+
+#             # create multi-scaled, chunked data structure from the image
+#             multiscales = nz.to_multiscales(
+#                 current_field_image, scale_factors=[2, 2, 2], method=nz.Methods.DASK_IMAGE_GAUSSIAN
+#             )
+
+#             # write to wells
+#             nz.write_hcs_well_image(
+#                 store=zarr_output_path,
+#                 multiscales=multiscales,
+#                 plate_metadata=plate_metadata,
+#                 row_name=row_name,
+#                 column_name=col_name,
+#                 field_index=fi,
+#                 acquisition_id=0,
+#                 version=version,
+#             )
+
+#     logger.info("=" * 80)
+#     logger.info("Conversion completed successfully!")
+#     logger.info(f"Output HCS OME-ZARR file: {zarr_output_path}")
+#     logger.info("=" * 80)
+
+#     return str(zarr_output_path)
+
+
 def convert_czi2hcs_ngff(
     czi_filepath: str,
     plate_name: str = "Automated Plate",
     overwrite: bool = True,
     log_file_path: str = None,
+    write_ozx_directly: bool = False,
     version: str = "0.5",
+    output_dir: Optional[str] = None,
 ) -> str:
     """Convert CZI file to OME-ZARR HCS format using NGFF-ZARR package.
 
@@ -338,14 +474,21 @@ def convert_czi2hcs_ngff(
         plate_name: Name of the well plate for metadata
         overwrite: If True, removes existing zarr files at the output path
         log_file_path: Path to log file. If None, creates default log file based on input filename.
+        use_ozx: If True, saves as single-file OZX format instead of directory
         version: NGFF version to use (default: "0.5")
+        output_dir: Optional directory to save the output file. If None, uses input file's directory.
 
     Returns:
         str: Path to the output ZARR file
     """
+
+    czi_path = Path(czi_filepath)
+
+    if output_dir is not None and log_file_path is None:
+        log_file_path = Path(output_dir) / f"{czi_path.stem}_hcs_ngff.log"
+
     # Set up logging if not already configured
-    if log_file_path is None:
-        czi_path = Path(czi_filepath)
+    if output_dir is None and log_file_path is None:
         log_file_path = czi_path.parent / f"{czi_path.stem}_hcs_ngff.log"
 
     setup_logging(log_file_path)
@@ -358,12 +501,31 @@ def convert_czi2hcs_ngff(
     logger.info(f"Plate name: {plate_name}")
 
     # Define output path
-    zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ome.zarr")
+    if not write_ozx_directly:
+        if output_dir is not None:
+            zarr_output_path = Path(output_dir) / f"{czi_path.stem}_HCSplate.ome.zarr"
+        else:
+            zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ome.zarr")
+    else:
+        if output_dir is not None:
+            zarr_output_path = Path(output_dir) / f"{czi_path.stem}_HCSplate.ozx"
+        else:
+            zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ozx")
 
     # Handle existing files
     if zarr_output_path.exists():
         if overwrite:
-            shutil.rmtree(zarr_output_path)
+            logger.info(f"Removing existing file/directory: {zarr_output_path}")
+            # Use appropriate removal method based on whether it's a directory or file
+            if zarr_output_path.is_dir():
+                shutil.rmtree(zarr_output_path)
+            else:
+                os.remove(zarr_output_path)
+            # Give the OS time to release the file handle and complete deletion
+            gc.collect()
+            time.sleep(0.5)  # Increased delay to let Windows release the file
+            logger.info("File removed successfully")
+
         else:
             logger.info(f"File exists at {zarr_output_path}. Set overwrite=True to remove.")
             return str(zarr_output_path)
@@ -398,47 +560,35 @@ def convert_czi2hcs_ngff(
                 )
             )
 
-    plate = Plate(
+    plate_metadata = Plate(
         columns=columns, rows=rows, wells=wells, name=plate_name, field_count=len(field_paths), version=version
     )
 
     # Create the HCS plate structure
-    hcs_plate = HCSPlate(store=zarr_output_path, plate_metadata=plate)
+    hcs_plate = HCSPlate(store=zarr_output_path, plate_metadata=plate_metadata)
     to_hcs_zarr(hcs_plate, zarr_output_path)
 
-    for well in wells:
-        row_name, col_name = well.path.split("/")
-        current_well_id = well.path.replace("/", "")
-        logger.info(f"Creating WellID: {current_well_id} Row: {row_name}, Column: {col_name}")
-        for fi, field in enumerate(field_paths):
-            current_scene_index = mdata.sample.well_scene_indices[current_well_id][fi]
+    with HCSPlateWriter(str(zarr_output_path), plate_metadata) as writer:
 
-            logger.info(f"Writing Well: {well.path}, Field: {field}, Scene Index: {current_scene_index}")
-            # create current field image
-            current_field_image = nz.NgffImage(
-                data=array6d[current_scene_index, ...].data,
-                dims=["t", "c", "z", "y", "x"],
-                scale={"y": mdata.scale.Y, "x": mdata.scale.X, "z": mdata.scale.Z},
-                translation={"t": 0.0, "c": 0.0, "z": 0.0, "y": 0.0, "x": 0.0},
-                name=mdata.filename,
-            )
+        for well in wells:
+            row_name, col_name = well.path.split("/")
+            current_well_id = well.path.replace("/", "")
+            logger.info(f"Creating WellID: {current_well_id} Row: {row_name}, Column: {col_name}")
+            for fi, field in enumerate(field_paths):
+                current_scene_index = mdata.sample.well_scene_indices[current_well_id][fi]
 
-            # create multi-scaled, chunked data structure from the image
-            multiscales = nz.to_multiscales(
-                current_field_image, scale_factors=[2, 2, 2], method=nz.Methods.DASK_IMAGE_GAUSSIAN
-            )
+                logger.info(f"Writing Well: {well.path}, Field: {field}, Scene Index: {current_scene_index}")
 
-            # write to wells
-            nz.write_hcs_well_image(
-                store=zarr_output_path,
-                multiscales=multiscales,
-                plate_metadata=plate,
-                row_name=row_name,
-                column_name=col_name,
-                field_index=fi,
-                acquisition_id=0,
-                version=version,
-            )
+                # create current field image
+                multiscales = get_fieldimage(array6d, current_scene_index, mdata)
+
+                # write to wells
+                writer.write_well_image(
+                    multiscales=multiscales,
+                    row_name=row_name,
+                    column_name=col_name,
+                    field_index=fi,
+                )
 
     logger.info("=" * 80)
     logger.info("Conversion completed successfully!")
@@ -446,6 +596,50 @@ def convert_czi2hcs_ngff(
     logger.info("=" * 80)
 
     return str(zarr_output_path)
+
+
+def get_fieldimage(
+    array6d: Union[xr.DataArray, np.ndarray, da.Array], scene_index: int, metadata: CziMetadata
+) -> nz.Multiscales:
+    """
+    Extract a field image from a 6D array and create a multi-scale representation.
+
+    This function takes a 6D array (with dimensions for scenes, time, channels, z-slices,
+    y, and x), extracts a specific scene, and converts it into a multi-scale NGFF
+    (Next Generation File Format) structure with Gaussian downsampling.
+
+    Args:
+        array6d: A 6-dimensional array containing image data with dimensions [scene, t, c, z, y, x].
+        scene_index: The index of the scene to extract from the 6D array.
+        metadata: Metadata object containing scale information (X, Y, Z) and filename for the image.
+
+    Returns:
+        nz.NgffMultiscales: A multi-scale representation of the extracted field image
+            with scale factors of [2, 2, 2] applied using Gaussian downsampling.
+
+    Notes:
+        - The output image has dimensions ["t", "c", "z", "y", "x"].
+        - Translation values are initialized to 0.0 for all dimensions.
+        - Multi-scale pyramid is generated using dask_image Gaussian method.
+    """
+    # Extract data correctly based on input type
+    if isinstance(array6d, xr.DataArray):
+        data = array6d[scene_index, ...].data
+    else:
+        data = array6d[scene_index, ...]
+
+    current_field_image = nz.NgffImage(
+        data=data,
+        dims=["t", "c", "z", "y", "x"],
+        scale={"y": metadata.scale.Y, "x": metadata.scale.X, "z": metadata.scale.Z},
+        translation={"t": 0.0, "c": 0.0, "z": 0.0, "y": 0.0, "x": 0.0},
+        name=metadata.filename,
+    )
+
+    # create multi-scaled, chunked data structure from the image
+    multiscales = nz.to_multiscales(current_field_image, scale_factors=[2, 2, 2], method=nz.Methods.DASK_IMAGE_GAUSSIAN)
+
+    return multiscales
 
 
 def get_display(metadata: CziMetadata, channel_index: int) -> tuple[float, float, float]:
@@ -547,8 +741,12 @@ def write_omezarr(
 
     # Handle existing files based on overwrite parameter
     if Path(zarr_path).exists() and overwrite:
-        # Remove existing zarr store completely
-        shutil.rmtree(zarr_path, ignore_errors=False, onerror=None)
+        logger.info(f"Removing existing file/directory: {zarr_path}")
+        # Remove existing zarr store - handle both directories and files
+        if Path(zarr_path).is_dir():
+            shutil.rmtree(zarr_path, ignore_errors=False, onexc=None)
+        else:
+            os.remove(zarr_path)
     elif Path(zarr_path).exists() and not overwrite:
         # Exit early if file exists and overwrite is disabled
         logger.info(f"File already exists at {zarr_path}. Set overwrite=True to remove.")
@@ -644,7 +842,7 @@ def write_omezarr_ngff(
 
     # check if zarr_path already exits
     if Path(zarr_path).exists() and overwrite:
-        shutil.rmtree(zarr_path, ignore_errors=False, onerror=None)
+        shutil.rmtree(zarr_path, ignore_errors=False, onexc=None)
     elif Path(zarr_path).exists() and not overwrite:
         logger.info(f"File already exists at {zarr_path}. Set overwrite=True to remove.")
         return None
@@ -729,3 +927,39 @@ def create_channel_list(metadata: CziMetadata) -> list:
         )
 
     return channels_list
+
+
+def convert_hcs_omezarr2ozx(hcs_omezarr_path: Union[str, Path], remove_omezarr: bool = False, version="0.5") -> Path:
+    """
+    Convert an HCS OME-ZARR directory to a single-file OZX format.
+
+    This function reads an existing HCS OME-ZARR directory structure and converts it
+    into a single-file OZX format, which is a more portable representation of the data.
+
+    Args:
+        hcs_omezarr_path: Path to the input HCS OME-ZARR directory
+        remove_omezarr: If True, removes the original OME-ZARR directory after conversion
+    Returns:
+        Path to the created OZX file
+    """
+
+    # work with path object only
+    hcs_omezarr_path = Path(hcs_omezarr_path)
+
+    # check if HCS OME-ZARR path exists
+    if not hcs_omezarr_path.exists():
+        logger.info(f"OME-ZARR does not exist at {str(hcs_omezarr_path)}. Cannot convert to OZX.")
+        return None
+    else:
+        logger.info(f"Converting HCS OME-ZARR at {str(hcs_omezarr_path)} to OZX format.")
+        write_store_to_zip(
+            str(hcs_omezarr_path),  # Source plate directory
+            str(hcs_omezarr_path)[:-9] + ".ozx",  # Output .ozx file
+            version=version,  # Required for .ozx
+        )
+
+    if remove_omezarr:
+        logger.info(f"Removing original OME-ZARR directory at {str(hcs_omezarr_path)}.")
+        shutil.rmtree(hcs_omezarr_path, ignore_errors=False, onexc=None)
+
+    return Path(str(hcs_omezarr_path)[:-8] + ".ozx")

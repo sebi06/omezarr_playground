@@ -33,6 +33,7 @@ from ome_zarr_utils import (
     write_omezarr,
     write_omezarr_ngff,
     setup_logging,
+    convert_hcs_omezarr2ozx,
 )
 from czitools.read_tools import read_tools
 import logging
@@ -148,20 +149,22 @@ def read_czi_metadata(filepath: Path) -> tuple[Optional[CziMetadata], int]:
 
 def perform_conversion(
     filepath: Path,
-    use_ozx: bool,
+    use_ozx_format: bool,
     write_hcs: bool,
-    show_napari: bool,
     package_choice: omezarr_package,
     scene_id: int,
+    write_ozx_directly: bool,
+    write_ozx_afterwards: bool,
 ) -> Optional[str]:
     """
     Perform the CZI to OME-ZARR conversion with specified parameters.
 
     Args:
         filepath: Path to input CZI file
-        use_ozx: Enable single-file OME-ZARR format (.ozx)
+        use_ozx_format: Enable single-file OME-ZARR format (.ozx)
         write_hcs: Enable HCS (multi-well plate) layout
-        show_napari: Open result in napari viewer after conversion
+        write_ozx_directly: Create OZX archive during writing (NGFF-ZARR only)
+        write_ozx_afterwards: Convert to OZX after writing (NGFF-ZARR only)
         package_choice: Backend package (OME_ZARR or NGFF_ZARR)
         scene_id: Scene index to convert (for non-HCS mode with multiple scenes)
 
@@ -180,7 +183,7 @@ def perform_conversion(
         logger.info(f"Input file: {filepath}")
         logger.info(f"Package: {package_choice.name}")
         logger.info(f"HCS mode: {write_hcs}")
-        logger.info(f"Single-file (.ozx): {use_ozx}")
+        logger.info(f"Single-file (.ozx): {use_ozx_format}")
         logger.info(f"Scene ID: {scene_id}")
 
         output_path = None
@@ -195,8 +198,15 @@ def perform_conversion(
                 )
             elif package_choice == omezarr_package.NGFF_ZARR:
                 output_path = convert_czi2hcs_ngff(
-                    czi_filepath=str(filepath), overwrite=True, log_file_path=str(log_file_path)
+                    czi_filepath=str(filepath),
+                    overwrite=True,
+                    write_ozx_directly=write_ozx_directly,
+                    log_file_path=str(log_file_path),
                 )
+
+            # covert to OZX after writing if requested
+            if use_ozx_format and not write_ozx_directly and write_ozx_afterwards:
+                output_path = convert_hcs_omezarr2ozx(output_path, remove_omezarr=True)
 
             print(f"✅ HCS-ZARR created: {output_path}")
 
@@ -216,16 +226,25 @@ def perform_conversion(
                 zarr_output_path = Path(str(filepath)[:-4] + ".ome.zarr")
 
                 # Write OME-ZARR using ome-zarr-py backend
+
                 output_path = write_omezarr(array, zarr_path=str(zarr_output_path), metadata=mdata, overwrite=True)
+
                 print(f"✅ OME-ZARR created: {output_path}")
 
             elif package_choice == omezarr_package.NGFF_ZARR:
-                # Generate output path
-                zarr_output_path = Path(str(filepath)[:-4] + "_ngff.ome.zarr")
+
+                if write_ozx_directly:
+                    # Generate output path with _ngff.ozx extension
+                    zarr_output_path: Path = Path(str(filepath)[:-4] + "_ngff.ozx")
+                else:
+                    # Generate output path with _ngff.ome.zarr extension
+                    zarr_output_path: Path = Path(str(filepath)[:-4] + "_ngff.ome.zarr")
 
                 # Write OME-ZARR using ngff-zarr backend
                 _ = write_omezarr_ngff(array, zarr_output_path, mdata, scale_factors=[2, 4], overwrite=True)
+
                 output_path = str(zarr_output_path)
+
                 print(f"✅ OME-ZARR created: {output_path}")
 
         # Note: napari viewer will be opened on main thread after conversion completes
@@ -258,22 +277,26 @@ def perform_conversion(
         "mode": "r",
         "filter": "*.czi",
     },
-    use_ozx={
-        "label": "Use Single-File OME-ZARR (.ozx)",
-        "tooltip": "Enable OZX format for single-file OME-ZARR storage",
+    package_choice={
+        "label": "OME-ZARR Package",
+        "choices": [("ngff-zarr (Recommended)", omezarr_package.NGFF_ZARR), ("ome-zarr-py", omezarr_package.OME_ZARR)],
+        "tooltip": "Choose the backend library for OME-ZARR writing",
     },
     write_hcs={
         "label": "Write HCS Layout",
         "tooltip": "Enable HCS (High Content Screening) multi-well plate format",
     },
-    show_napari={
-        "label": "Show in napari After Conversion",
-        "tooltip": "Automatically open the result in napari viewer",
+    use_ozx_format={
+        "label": "Use Single-File OME-ZARR (.ozx)",
+        "tooltip": "Enable OZX format for single-file OME-ZARR storage",
     },
-    package_choice={
-        "label": "OME-ZARR Package",
-        "choices": [("ngff-zarr (Recommended)", omezarr_package.NGFF_ZARR), ("ome-zarr-py", omezarr_package.OME_ZARR)],
-        "tooltip": "Choose the backend library for OME-ZARR writing",
+    use_ozx_write_directly={
+        "label": "Create OZX archive during writing",
+        "tooltip": "Enable OZX format for single-file OME-ZARR storage during writing",
+    },
+    use_ozx_after_writing={
+        "label": "Create OZX archive after writing",
+        "tooltip": "Enable OZX format for single-file OME-ZARR storage after writing",
     },
     scene_id={
         "label": "Scene ID",
@@ -282,14 +305,20 @@ def perform_conversion(
         "tooltip": "Select scene to convert (only for non-HCS mode with multiple scenes)",
         "visible": False,
     },
+    show_napari={
+        "label": "Show in napari After Conversion",
+        "tooltip": "Automatically open the result in napari viewer",
+    },
 )
 def czi_to_omezarr_converter(
     czi_file: Path = Path(),
-    use_ozx: bool = False,
-    write_hcs: bool = False,
-    show_napari: bool = False,
     package_choice: omezarr_package = omezarr_package.NGFF_ZARR,
+    write_hcs: bool = False,
+    use_ozx_format: bool = False,
+    use_ozx_write_directly: bool = False,
+    use_ozx_after_writing: bool = False,
     scene_id: int = 0,
+    show_napari: bool = False,
 ):
     """
     Main widget for CZI to OME-ZARR conversion configuration.
@@ -487,11 +516,13 @@ def on_convert_clicked() -> None:
 
     # Get current values from the widget
     czi_file = czi_to_omezarr_converter.czi_file.value
-    use_ozx = czi_to_omezarr_converter.use_ozx.value
+    use_ozx_format = czi_to_omezarr_converter.use_ozx_format.value
     write_hcs = czi_to_omezarr_converter.write_hcs.value
     show_napari = czi_to_omezarr_converter.show_napari.value
     package_choice = czi_to_omezarr_converter.package_choice.value
     scene_id = czi_to_omezarr_converter.scene_id.value
+    write_ozx_afterwards = czi_to_omezarr_converter.use_ozx_after_writing.value
+    write_ozx_directly = czi_to_omezarr_converter.use_ozx_write_directly.value
 
     # Validate that file exists
     if not czi_file.exists():
@@ -549,9 +580,10 @@ def on_convert_clicked() -> None:
         # Perform the conversion operation
         output_path = perform_conversion(
             filepath=czi_file,
-            use_ozx=use_ozx,
+            use_ozx_format=use_ozx_format,
+            write_ozx_afterwards=czi_to_omezarr_converter.use_ozx_after_writing.value,
+            write_ozx_directly=czi_to_omezarr_converter.use_ozx_write_directly.value,
             write_hcs=write_hcs,
-            show_napari=show_napari,
             package_choice=package_choice,
             scene_id=scene_id,
         )
@@ -566,12 +598,83 @@ def on_convert_clicked() -> None:
     conversion_thread.start()
 
 
+def update_ozx_child_states() -> None:
+    """Synchronize dependent OZX options with the master toggle."""
+
+    master_active = bool(czi_to_omezarr_converter.use_ozx_format.value)
+    hcs_enabled = bool(czi_to_omezarr_converter.write_hcs.value)
+
+    allow_direct = master_active and not hcs_enabled
+    allow_after = master_active
+
+    czi_to_omezarr_converter.use_ozx_write_directly.enabled = allow_direct
+    czi_to_omezarr_converter.use_ozx_after_writing.enabled = allow_after
+
+    if not allow_direct and czi_to_omezarr_converter.use_ozx_write_directly.value:
+        czi_to_omezarr_converter.use_ozx_write_directly.value = False
+
+    if not allow_after and czi_to_omezarr_converter.use_ozx_after_writing.value:
+        czi_to_omezarr_converter.use_ozx_after_writing.value = False
+
+    if master_active:
+        if (
+            czi_to_omezarr_converter.use_ozx_write_directly.value
+            and czi_to_omezarr_converter.use_ozx_after_writing.value
+        ):
+            # Prefer the mode that remains permitted (after-writing when HCS, otherwise keep latest selection)
+            if hcs_enabled:
+                czi_to_omezarr_converter.use_ozx_write_directly.value = False
+            else:
+                czi_to_omezarr_converter.use_ozx_after_writing.value = False
+    else:
+        czi_to_omezarr_converter.use_ozx_write_directly.value = False
+        czi_to_omezarr_converter.use_ozx_after_writing.value = False
+
+
+def update_use_ozx_format_enabled_state() -> None:
+    """Enable or disable OZX controls based on backend capabilities."""
+
+    package_choice = czi_to_omezarr_converter.package_choice.value
+
+    can_use_ozx = package_choice != omezarr_package.OME_ZARR
+    czi_to_omezarr_converter.use_ozx_format.enabled = can_use_ozx
+
+    if not can_use_ozx and czi_to_omezarr_converter.use_ozx_format.value:
+        czi_to_omezarr_converter.use_ozx_format.value = False
+
+    update_ozx_child_states()
+
+
+def on_use_ozx_format_changed(_: bool) -> None:
+    """React to master OZX toggle changes."""
+
+    update_ozx_child_states()
+
+
+def on_use_ozx_write_directly_changed(value: bool) -> None:
+    """Ensure mutually exclusive OZX modes when direct write is toggled."""
+
+    if value:
+        czi_to_omezarr_converter.use_ozx_after_writing.value = False
+
+    update_ozx_child_states()
+
+
+def on_use_ozx_after_writing_changed(value: bool) -> None:
+    """Ensure mutually exclusive OZX modes when post-write archive is toggled."""
+
+    if value:
+        czi_to_omezarr_converter.use_ozx_write_directly.value = False
+
+    update_ozx_child_states()
+
+
 def on_write_hcs_changed(value: bool) -> None:
     """Callback for write_hcs checkbox changes.
 
     Controls UI state based on HCS mode selection:
     - Hides scene selector in HCS mode (HCS processes all scenes automatically)
-    - Disables and unchecks single-file (.ozx) option in HCS mode (not supported)
+    - Limits single-file (.ozx) mode to post-write archiving when HCS is enabled
 
     Args:
         value: True if HCS mode is enabled, False otherwise
@@ -585,10 +688,7 @@ def on_write_hcs_changed(value: bool) -> None:
     scene_selector_visible = (not value) and (max_scenes > 1)
     czi_to_omezarr_converter.scene_id.visible = scene_selector_visible
 
-    # Disable single-file OME-ZARR option when HCS mode is enabled
-    czi_to_omezarr_converter.use_ozx.enabled = not value
-    if value:
-        czi_to_omezarr_converter.use_ozx.value = False
+    update_use_ozx_format_enabled_state()
 
 
 def on_package_choice_changed(value: omezarr_package) -> None:
@@ -604,14 +704,7 @@ def on_package_choice_changed(value: omezarr_package) -> None:
     Note:
         The single-file option may remain disabled if HCS mode is active.
     """
-    # Disable single-file option for ome-zarr-py package
-    if value == omezarr_package.OME_ZARR:
-        czi_to_omezarr_converter.use_ozx.value = False
-        czi_to_omezarr_converter.use_ozx.enabled = False
-    else:
-        # Re-enable if not in HCS mode
-        write_hcs = czi_to_omezarr_converter.write_hcs.value
-        czi_to_omezarr_converter.use_ozx.enabled = not write_hcs
+    update_use_ozx_format_enabled_state()
 
 
 def on_file_changed(value: Path) -> None:
@@ -647,6 +740,8 @@ def on_file_changed(value: Path) -> None:
         # Reset convert button state
         convert_button.enabled = False
 
+        update_use_ozx_format_enabled_state()
+
 
 # ============================================================================
 # Widget Configuration and Callback Connections
@@ -659,12 +754,17 @@ try:
 except AttributeError as e:
     print(f"Warning: Could not set file selector width: {e}")
 
+update_use_ozx_format_enabled_state()
+
 # Connect callback functions to widget signals
 # These callbacks handle user interactions and maintain UI state consistency
 read_metadata_button.clicked.connect(on_read_metadata_clicked)
 convert_button.clicked.connect(on_convert_clicked)
 czi_to_omezarr_converter.write_hcs.changed.connect(on_write_hcs_changed)
 czi_to_omezarr_converter.package_choice.changed.connect(on_package_choice_changed)
+czi_to_omezarr_converter.use_ozx_format.changed.connect(on_use_ozx_format_changed)
+czi_to_omezarr_converter.use_ozx_write_directly.changed.connect(on_use_ozx_write_directly_changed)
+czi_to_omezarr_converter.use_ozx_after_writing.changed.connect(on_use_ozx_after_writing_changed)
 czi_to_omezarr_converter.czi_file.changed.connect(on_file_changed)
 
 
