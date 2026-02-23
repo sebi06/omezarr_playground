@@ -26,11 +26,12 @@ dependencies:
   - pyqt=5
   - pytest
   - pytest-cov
+  - pytest-forked
   - python-box[all]
   - python-dateutil
   - qasync
   - requests
-  - scikit-image>=0.19.3
+  - scikit-image
   - setuptools
   - tqdm
   - validators
@@ -51,6 +52,7 @@ dependencies:
       - bioio-conversion
       - cztile
       - czitools
+      - df2tables
       - loguru
       - napari-brightness-contrast
       - napari-crop
@@ -64,12 +66,15 @@ dependencies:
       - ngff-zarr[validate]
       - pylibCZIrw
       - marimo
+      - pip-system-certs
+      - pytestarch
+      
 
 # Create an environment - use conda or mamba
-# conda env create --file omezarr_env.yml
+# conda env create --file env_omezarr.yml
 
 # Update an environment
-# conda env update --name omezarr --file omezarr_env.yml --prune
+# conda env update --name omezarr --file env_omezarr.yml --prune
 
 # Remove an environment
 # conda remove --name omezarr --all
