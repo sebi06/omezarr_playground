@@ -27,7 +27,9 @@ import gc
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(log_file_path: str = None, log_level: int = logging.INFO, force_reconfigure: bool = False):
+def setup_logging(
+    log_file_path: Optional[Union[str, Path]] = None, log_level: int = logging.INFO, force_reconfigure: bool = False
+) -> logging.Logger:
     """
     Set up logging configuration consistently across all functions.
 
@@ -79,7 +81,7 @@ class omezarr_package(Enum):
     NGFF_ZARR = 2
 
 
-def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_path: str = None) -> str:
+def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_path: Optional[str] = None) -> str:
     """Convert CZI file to OME-ZARR HCS (High Content Screening) format.
 
     This function converts a CZI (Carl Zeiss Image) file containing plate data into
@@ -101,7 +103,7 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
     # Set up logging if not already configured
     if log_file_path is None:
         czi_path = Path(czi_filepath)
-        log_file_path = czi_path.parent / f"{czi_path.stem}_hcs_omezarr.log"
+        log_file_path = str(czi_path.parent / f"{czi_path.stem}_hcs_omezarr.log")
 
     setup_logging(log_file_path)
     logger = logging.getLogger(__name__)
@@ -126,12 +128,17 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
     # Read CZI file
     array6d, mdata = read_tools.read_6darray(czi_filepath, use_xarray=True)
 
+    assert mdata.sample is not None, "CZI metadata is missing sample/plate information"
+    assert isinstance(array6d, xr.DataArray), "Expected xarray DataArray from read_6darray with use_xarray=True"
+
     # Extract plate layout
     row_names, col_names, well_paths = extract_well_coordinates(mdata.sample.well_counter)
     field_paths = [str(i) for i in range(mdata.sample.well_counter[mdata.sample.well_array_names[0]])]
 
     # Initialize zarr storage and write plate metadata with proper row/column objects
-    store = parse_url(zarr_output_path, mode="w").store
+    parsed = parse_url(zarr_output_path, mode="w")
+    assert parsed is not None, f"Failed to open zarr store at {zarr_output_path}"
+    store = parsed.store
     root = zarr.group(store=store)
 
     # Create PlateRow and PlateColumn objects (required for proper metadata)
@@ -140,7 +147,7 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
     rows_metadata = [PlateRow(name=row) for row in sorted(row_names)]
 
     # Write plate metadata using the standard ome-zarr-py function
-    write_plate_metadata(root, row_names, col_names, well_paths)
+    write_plate_metadata(root, row_names, col_names, well_paths)  # type: ignore[arg-type]
 
     # Additionally, store the rows and columns in the metadata for compatibility
     # This is what ngff-zarr expects to find
@@ -153,7 +160,7 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
     for wp in well_paths:
         row, col = wp.split("/")
         well_group = root.require_group(row).require_group(col)
-        write_well_metadata(well_group, field_paths)
+        write_well_metadata(well_group, field_paths)  # type: ignore[arg-type]
 
         current_well_id = wp.replace("/", "")
         for fi, field in enumerate(field_paths):
@@ -163,10 +170,10 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
             logger.info(f"Writing Well: {wp}, Field: {field}, Scene Index: {current_scene_index}")
 
             write_image(
-                image=array6d[current_scene_index, ...],
+                image=array6d[current_scene_index, ...],  # type: ignore[arg-type]
                 group=image_group,
-                axes=array6d.axes[1:].lower(),
-                storage_options=dict(chunks=(1, 1, 1, array6d.Y.size, array6d.X.size)),
+                axes="".join(str(d).lower() for d in array6d.dims[1:]),
+                storage_options=dict(chunks=(1, 1, 1, array6d.sizes["Y"], array6d.sizes["X"])),
             )
 
     logger.info("=" * 80)
@@ -462,7 +469,7 @@ def convert_czi2hcs_ngff(
     czi_filepath: str,
     plate_name: str = "Automated Plate",
     overwrite: bool = True,
-    log_file_path: str = None,
+    log_file_path: Optional[Union[str, Path]] = None,
     write_ozx_directly: bool = False,
     version: str = "0.5",
     output_dir: Optional[str] = None,
@@ -532,6 +539,9 @@ def convert_czi2hcs_ngff(
 
     # Read CZI file
     array6d, mdata = read_tools.read_6darray(czi_filepath, use_xarray=True)
+
+    assert mdata.sample is not None, "CZI metadata is missing sample/plate information"
+    assert isinstance(array6d, xr.DataArray), "Expected xarray DataArray from read_6darray with use_xarray=True"
 
     # Extract plate layout
     row_names, col_names, well_paths = extract_well_coordinates(mdata.sample.well_counter)
@@ -629,15 +639,19 @@ def get_fieldimage(
         data = array6d[scene_index, ...]
 
     current_field_image = nz.NgffImage(
-        data=data,
+        data=data,  # type: ignore[arg-type]
         dims=["t", "c", "z", "y", "x"],
-        scale={"y": metadata.scale.Y, "x": metadata.scale.X, "z": metadata.scale.Z},
+        scale={
+            "y": float(metadata.scale.Y) if (metadata.scale is not None and metadata.scale.Y is not None) else 1.0,
+            "x": float(metadata.scale.X) if (metadata.scale is not None and metadata.scale.X is not None) else 1.0,
+            "z": float(metadata.scale.Z) if (metadata.scale is not None and metadata.scale.Z is not None) else 1.0,
+        },
         translation={"t": 0.0, "c": 0.0, "z": 0.0, "y": 0.0, "x": 0.0},
-        name=metadata.filename,
+        name=metadata.filename if metadata.filename is not None else "image.czi",
     )
 
     # create multi-scaled, chunked data structure from the image
-    multiscales = nz.to_multiscales(current_field_image, scale_factors=[2, 2, 2], method=nz.Methods.DASK_IMAGE_GAUSSIAN)
+    multiscales = nz.to_multiscales(current_field_image, scale_factors=[2, 2, 2], method=nz.Methods.DASK_IMAGE_GAUSSIAN)  # type: ignore[attr-defined]
 
     return multiscales
 
@@ -667,27 +681,31 @@ def get_display(metadata: CziMetadata, channel_index: int) -> tuple[float, float
     """
 
     # Try to read the display settings embedded in the CZI file
+    channelinfo = metadata.channelinfo
+    maxvalue_list = metadata.maxvalue_list
     try:
+        assert channelinfo is not None, "channelinfo is None"
+        assert maxvalue_list is not None, "maxvalue_list is None"
         # Calculate actual intensity values from normalized display limits (0.0-1.0)
         # clims contains normalized values that need to be scaled by the max intensity
         lower = np.round(
-            metadata.channelinfo.clims[channel_index][0] * metadata.maxvalue_list[channel_index],
+            channelinfo.clims[channel_index][0] * maxvalue_list[channel_index],
             0,
         )
         higher = np.round(
-            metadata.channelinfo.clims[channel_index][1] * metadata.maxvalue_list[channel_index],
+            channelinfo.clims[channel_index][1] * maxvalue_list[channel_index],
             0,
         )
 
         # Get the absolute maximum intensity value for this channel
-        maxvalue = metadata.maxvalue_list[channel_index]
+        maxvalue = maxvalue_list[channel_index]
 
-    except IndexError:
+    except (IndexError, AssertionError):
         # Fallback when display settings are missing or inaccessible
         print("Calculation from display setting from CZI failed. Use 0-Max instead.")
-        lower = 0
-        # Use the channel's maximum value from the alternative metadata location
-        higher = metadata.maxvalue[channel_index]
+        lower = 0.0
+        # Use the channel's maximum value from the maxvalue_list
+        higher = float(maxvalue_list[channel_index]) if maxvalue_list is not None else 0.0
         maxvalue = higher
 
     return lower, higher, maxvalue
@@ -698,7 +716,7 @@ def write_omezarr(
     zarr_path: Union[str, Path],
     metadata: CziMetadata,
     overwrite: bool = False,
-    log_file_path: str = None,
+    log_file_path: Optional[Union[str, Path]] = None,
 ) -> Optional[str]:
     """
     Write a 5D array to OME-ZARR format.
@@ -708,9 +726,8 @@ def write_omezarr(
     accessing large microscopy datasets.
 
     Args:
-        array5d: Input array with up to 5 dimensions. Can be a numpy array or
-                xarray DataArray or dask Array. Expected dimension order is typically TCZYX
-                (Time, Channel, Z, Y, X) or similar.
+        array5d: Input array with up to 5 dimensions. Must be an xarray DataArray
+                with named dimensions (e.g. T, C, Z, Y, X).
         zarr_path: Path where the OME-ZARR file should be written. Can be a
                   string or Path object.
         metadata: Metadata object containing information about the image.
@@ -732,11 +749,14 @@ def write_omezarr(
     logger.info(f"Input array shape: {array5d.shape}")
     logger.info(f"Output path: {zarr_path}")
 
+    # Narrow to xr.DataArray — required for dimension-name-based access (.dims, .sizes)
+    assert isinstance(array5d, xr.DataArray), "write_omezarr requires an xarray DataArray"
+
     zarr_path = Path(zarr_path)
 
     # Validate input array dimensions - OME-ZARR supports up to 5D
     if len(array5d.shape) > 5:
-        logger.info("Input array as more than 5 dimensions.")
+        logger.info("Input array has more than 5 dimensions.")
         return None
 
     # Handle existing files based on overwrite parameter
@@ -757,16 +777,18 @@ def write_omezarr(
     logger.info(f"Using ngff format version: {ngff_version}")
 
     # Initialize zarr store and create root group
-    store = parse_url(zarr_path, mode="w").store
+    parsed = parse_url(zarr_path, mode="w")
+    assert parsed is not None, f"Failed to open zarr store at {zarr_path}"
+    store = parsed.store
     root = zarr.group(store=store, overwrite=overwrite)
 
     # Write the main image data to zarr
     # Uses chunking strategy that keeps full XY planes together for efficient access
     ome_zarr.writer.write_image(
-        image=array5d,
+        image=array5d,  # type: ignore[arg-type]
         group=root,
-        axes=array5d.axes[1:].lower(),  # Skip first axis (Scene) and convert to lowercase
-        storage_options=dict(chunks=(1, 1, 1, array5d.Y.size, array5d.X.size)),
+        axes="".join(str(d).lower() for d in array5d.dims),
+        storage_options=dict(chunks=(1, 1, 1, array5d.sizes["Y"], array5d.sizes["X"])),
     )
 
     # Build channel metadata for OMERO visualization
@@ -788,19 +810,19 @@ def write_omezarr(
     logger.info(f"Output file: {zarr_path}")
     logger.info("=" * 80)
 
-    return zarr_path
+    return str(zarr_path)
 
 
 def write_omezarr_ngff(
-    array5d,
-    zarr_path: str,
+    array5d: Union[np.ndarray, xr.DataArray, da.Array],
+    zarr_path: Path | str,
     metadata: CziMetadata,
-    scale_factors: list = [2, 4, 8],
+    scale_factors: list[int] = [2, 4, 8],
     overwrite: bool = False,
     version: str = "0.5",
     chunks: Union[tuple, None] = None,
     chunks_per_shard: Union[Dict[str, int], int, None] = 2,
-    log_file_path: str = None,
+    log_file_path: Path | str | None = None,
 ) -> Optional[nz.NgffImage]:
     """
     Write a 5D array to OME-ZARR NGFF format with multi-scale pyramids.
@@ -837,7 +859,7 @@ def write_omezarr_ngff(
 
     # Validate input array dimensions - OME-ZARR supports up to 5D
     if len(array5d.shape) > 5:
-        logger("Input array as more than 5 dimensions.")
+        logger.info("Input array has more than 5 dimensions.")
         return None
 
     # check if zarr_path already exits
@@ -848,20 +870,26 @@ def write_omezarr_ngff(
         return None
 
     # create NGFF image from the array
+    _scale = metadata.scale
+    _filename = metadata.filename or "image.czi"
     image = nz.to_ngff_image(
-        array5d.data,
+        array5d.data if isinstance(array5d, xr.DataArray) else array5d,  # type: ignore[arg-type]
         dims=["t", "c", "z", "y", "x"],
-        scale={"y": metadata.scale.Y, "x": metadata.scale.X, "z": metadata.scale.Z},
-        name=metadata.filename[:-4] + ".ome.zarr",
+        scale={
+            "y": float(_scale.Y) if (_scale is not None and _scale.Y is not None) else 1.0,
+            "x": float(_scale.X) if (_scale is not None and _scale.X is not None) else 1.0,
+            "z": float(_scale.Z) if (_scale is not None and _scale.Z is not None) else 1.0,
+        },
+        name=_filename[:-4] + ".ome.zarr",
     )
 
     # define chunk size
     if chunks is None:
-        chunks = (1, array5d.shape[1], array5d.shape[2], array5d.shape[3], array5d.shape[4])
+        chunks = (1, array5d.shape[1], array5d.shape[2], array5d.shape[3], array5d.shape[4])  # type: ignore[misc]
 
     # create multi-scaled, chunked data structure from the image
     multiscales = nz.to_multiscales(
-        image, scale_factors=scale_factors, chunks=chunks, method=nz.Methods.DASK_IMAGE_GAUSSIAN
+        image, scale_factors=scale_factors, chunks=chunks, method=nz.Methods.DASK_IMAGE_GAUSSIAN  # type: ignore[attr-defined]
     )
 
     # add omera metadata for proper visualization
@@ -901,12 +929,22 @@ def create_channel_list(metadata: CziMetadata) -> list:
     # Build channel metadata for OMERO visualization
     channels_list = []
 
+    # Guard against missing image metadata
+    image = metadata.image
+    if image is None:
+        return channels_list
+
+    # Guard against missing channel info
+    channelinfo = metadata.channelinfo
+    if channelinfo is None:
+        return channels_list
+
     # Process each channel to extract display settings and metadata
-    for ch_index in range(metadata.image.SizeC):
+    for ch_index in range(image.SizeC or 0):
         # Extract RGB color from channel metadata (skip first 3 chars, get hex color)
-        rgb = metadata.channelinfo.colors[ch_index][3:]
+        rgb = channelinfo.colors[ch_index][3:]
         # Get channel name for display
-        chname = metadata.channelinfo.names[ch_index]
+        chname = channelinfo.names[ch_index]
 
         # Calculate display range (min/max intensity values) from CZI metadata
         lower, higher, maxvalue = get_display(metadata, ch_index)
@@ -929,7 +967,9 @@ def create_channel_list(metadata: CziMetadata) -> list:
     return channels_list
 
 
-def convert_hcs_omezarr2ozx(hcs_omezarr_path: Union[str, Path], remove_omezarr: bool = False, version="0.5") -> Path:
+def convert_hcs_omezarr2ozx(
+    hcs_omezarr_path: Union[str, Path], remove_omezarr: bool = False, version="0.5"
+) -> Optional[Path]:
     """
     Convert an HCS OME-ZARR directory to a single-file OZX format.
 

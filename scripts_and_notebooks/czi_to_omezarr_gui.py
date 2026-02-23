@@ -36,6 +36,7 @@ from ome_zarr_utils import (
     convert_hcs_omezarr2ozx,
 )
 from czitools.read_tools import read_tools
+import xarray as xr
 import logging
 import threading
 from qtpy.QtCore import QTimer
@@ -130,7 +131,8 @@ def read_czi_metadata(filepath: Path) -> tuple[Optional[CziMetadata], int]:
         mdata = CziMetadata(filepath)
 
         # Determine number of scenes
-        num_scenes = mdata.image.SizeS if hasattr(mdata.image, "SizeS") else None
+        image = mdata.image
+        num_scenes = image.SizeS if (image is not None and hasattr(image, "SizeS")) else None
 
         # Calculate max_scenes: if None or 0, default to 1
         max_scenes = num_scenes if num_scenes and num_scenes > 0 else 1
@@ -218,6 +220,7 @@ def perform_conversion(
             array, mdata = read_tools.read_6darray(str(filepath), planes={"S": (scene_id, scene_id)}, use_xarray=True)
 
             # Extract the specified scene (remove Scene dimension to get 5D array)
+            assert isinstance(array, xr.DataArray), "Expected xarray DataArray from read_6darray with use_xarray=True"
             array = array.squeeze("S")
             print(f"📊 Array shape: {array.shape}, dtype: {array.dtype}")
 
@@ -254,7 +257,7 @@ def perform_conversion(
         logger.info(f"Output: {output_path}")
         logger.info("=" * 80)
 
-        return output_path
+        return str(output_path) if output_path is not None else None
 
     except Exception as e:
         print(f"✗ Conversion failed: {e}")
@@ -414,6 +417,9 @@ def on_read_metadata_clicked() -> None:
         info_display.value = "❌ Error: Failed to read metadata"
         return
 
+    # Bind to a local variable so the type checker can narrow to CziMetadata (not Optional)
+    mdata = metadata
+
     # Determine scene selector visibility
     # Show only if: NOT in HCS mode AND file has multiple scenes
     write_hcs = czi_to_omezarr_converter.write_hcs.value
@@ -428,16 +434,24 @@ def on_read_metadata_clicked() -> None:
     # Enable the convert button now that metadata is loaded
     convert_button.enabled = True
 
+    # Bind image info to a local variable so the type checker can narrow away Optional
+    image = mdata.image
+    size_x = image.SizeX if image is not None else "N/A"
+    size_y = image.SizeY if image is not None else "N/A"
+    size_c = image.SizeC if image is not None else "N/A"
+    size_z = image.SizeZ if image is not None else "N/A"
+    size_t = image.SizeT if image is not None else "N/A"
+
     # Build and display metadata summary
     info_text = f"""✅ Metadata loaded successfully!
 
 📁 File: {filepath.name}
-📐 Dimensions: {metadata.pyczi_dims}
+📐 Dimensions: {mdata.pyczi_dims}
 🔢 Number of scenes: {max_scenes}
-📊 Image size: {metadata.image.SizeX} × {metadata.image.SizeY}
-🎨 Channels: {metadata.image.SizeC}
-📚 Z-slices: {metadata.image.SizeZ}
-⏱️ Time points: {metadata.image.SizeT}
+📊 Image size: {size_x} × {size_y}
+🎨 Channels: {size_c}
+📚 Z-slices: {size_z}
+⏱️ Time points: {size_t}
 
 Ready to convert!
 """
@@ -521,8 +535,6 @@ def on_convert_clicked() -> None:
     show_napari = czi_to_omezarr_converter.show_napari.value
     package_choice = czi_to_omezarr_converter.package_choice.value
     scene_id = czi_to_omezarr_converter.scene_id.value
-    write_ozx_afterwards = czi_to_omezarr_converter.use_ozx_after_writing.value
-    write_ozx_directly = czi_to_omezarr_converter.use_ozx_write_directly.value
 
     # Validate that file exists
     if not czi_file.exists():
@@ -630,6 +642,25 @@ def update_ozx_child_states() -> None:
         czi_to_omezarr_converter.use_ozx_write_directly.value = False
         czi_to_omezarr_converter.use_ozx_after_writing.value = False
 
+    update_show_napari_enabled_state()
+
+
+def update_show_napari_enabled_state() -> None:
+    """Enable or disable 'Show in napari' based on whether the output will be an .ozx archive.
+
+    napari (via napari-ome-zarr) can only open directory-based OME-ZARR stores, not
+    zip-based .ozx archives. The checkbox is therefore disabled and unchecked whenever
+    the conversion is configured to produce an .ozx file.
+    """
+    will_produce_ozx = czi_to_omezarr_converter.use_ozx_format.value and (
+        czi_to_omezarr_converter.use_ozx_write_directly.value or czi_to_omezarr_converter.use_ozx_after_writing.value
+    )
+
+    czi_to_omezarr_converter.show_napari.enabled = not will_produce_ozx
+
+    if will_produce_ozx and czi_to_omezarr_converter.show_napari.value:
+        czi_to_omezarr_converter.show_napari.value = False
+
 
 def update_use_ozx_format_enabled_state() -> None:
     """Enable or disable OZX controls based on backend capabilities."""
@@ -649,6 +680,7 @@ def on_use_ozx_format_changed(_: bool) -> None:
     """React to master OZX toggle changes."""
 
     update_ozx_child_states()
+    update_show_napari_enabled_state()
 
 
 def on_use_ozx_write_directly_changed(value: bool) -> None:
