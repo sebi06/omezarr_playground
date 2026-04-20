@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.0"
+__generated_with = "0.23.1"
 app = marimo.App(width="medium")
 
 
@@ -46,7 +46,7 @@ def _(logging):
 
 @app.cell
 def _(mo):
-    file_browser = mo.ui.file_browser(multiple=False, restrict_navigation=False, selection_mode="directory", initial_path=None)
+    file_browser = mo.ui.file_browser(multiple=False, restrict_navigation=False, selection_mode="directory")
 
     # Display the file browser
     mo.vstack([file_browser])
@@ -251,6 +251,7 @@ def _(Dict, alt, pd):
             fontSize=14,
             anchor='start'
         )
+
     return (create_well_plate_altair_heatmap,)
 
 

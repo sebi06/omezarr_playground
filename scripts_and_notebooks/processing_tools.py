@@ -212,15 +212,15 @@ class ArrayProcessor:
 
             # Remove contiguous holes smaller than the specified size
             if not np.issubdtype(self.array.dtype, bool):
-                self.array = remove_small_holes(self.array.astype(bool), area_threshold=max_holesize, connectivity=1)
+                self.array = remove_small_holes(self.array.astype(bool), max_size=max_holesize, connectivity=1)
             else:
-                self.array = remove_small_holes(self.array, area_threshold=max_holesize, connectivity=1)
+                self.array = remove_small_holes(self.array, max_size=max_holesize, connectivity=1)
 
             # remove small objects
             if not np.issubdtype(self.array.dtype, bool):
-                self.array = remove_small_objects(self.array.astype(bool), min_size)
+                self.array = remove_small_objects(self.array.astype(bool), max_size=min_size)
             else:
-                self.array = remove_small_objects(self.array, min_size)
+                self.array = remove_small_objects(self.array, max_size=min_size)
 
             # clear the border
             self.array = segmentation.clear_border(self.array, bgval=bg_label)

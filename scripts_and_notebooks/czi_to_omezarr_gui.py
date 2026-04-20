@@ -137,9 +137,14 @@ def read_czi_metadata(filepath: Path) -> tuple[Optional[CziMetadata], int]:
         # Calculate max_scenes: if None or 0, default to 1
         max_scenes = num_scenes if num_scenes and num_scenes > 0 else 1
 
+        # Build a dimension summary from available CziDimensions attributes
+        _dim_keys = ("SizeS", "SizeT", "SizeC", "SizeZ", "SizeY", "SizeX")
+        _dims = {k: getattr(image, k, None) for k in _dim_keys if getattr(image, k, None) is not None}
+        _dims_str = ", ".join(f"{k}={v}" for k, v in _dims.items())
+
         print("✓ Metadata loaded successfully")
         print(f"  - File: {filepath.name}")
-        print(f"  - Dimensions: {mdata.aics_dims_shape}")
+        print(f"  - Dimensions: {_dims_str}")
         print(f"  - Number of scenes: {max_scenes}")
 
         return mdata, max_scenes
@@ -491,11 +496,34 @@ def finish_conversion(output_path: Optional[str], should_open_napari: bool = Fal
     # Open napari viewer if requested (on main thread)
     if should_open_napari and output_path:
         import napari
+        import json
+        from napari.utils.colormaps import Colormap
 
         print("🎨 Opening in napari viewer...")
         try:
             viewer = napari.Viewer()
             viewer.open(output_path, plugin="napari-ome-zarr")
+
+            # napari-ome-zarr does not reliably apply OMERO channel colors from NGFF 0.5.
+            # Read colors from zarr.json and apply them manually to each layer.
+            zarr_json_path = Path(output_path) / "zarr.json"
+            if zarr_json_path.exists():
+                try:
+                    with open(zarr_json_path, "r", encoding="utf-8") as f:
+                        meta = json.load(f)
+                    channels = meta.get("attributes", {}).get("ome", {}).get("omero", {}).get("channels", [])
+                    for layer, ch in zip(viewer.layers, channels):
+                        hex_color = ch.get("color", "FFFFFF")
+                        r = int(hex_color[0:2], 16) / 255
+                        g = int(hex_color[2:4], 16) / 255
+                        b = int(hex_color[4:6], 16) / 255
+                        layer.colormap = Colormap(
+                            colors=[[0, 0, 0, 1], [r, g, b, 1]],
+                            name=f"ch_{hex_color}",
+                        )
+                except Exception as ce:
+                    print(f"⚠️ Could not apply channel colors: {ce}")
+
             print("✅ Napari viewer opened successfully")
         except Exception as e:
             print(f"⚠️ Failed to open in napari: {e}")

@@ -24,7 +24,7 @@ pip install magicgui napari[all] czitools ome-zarr-py ngff-zarr
 
 # Or if using conda
 conda install -c conda-forge magicgui napari czitools
-pip install ome-zarr-py ngff-zarr
+pip install ome-zarr ngff-zarr
 ```
 
 ## Usage
