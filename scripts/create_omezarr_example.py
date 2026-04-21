@@ -41,9 +41,10 @@ def main() -> None:
     platename: str = "Test_Plate_01"
 
     # use OZX (single file zipped OME-ZARR) - only works with NGFF-ZARR package (2025-11-19)
-    # NOTE: If you get PermissionError on Windows, disable antivirus or use write_hcs=False with use_ozx_write_directly=False?
-    # Not working as of 2025-11-25 for HCS conversion
-    write_ozx_directly: bool = False  # Changed to False to avoid Windows file locking issues
+    # NOTE: Writing directly to .ozx during HCS conversion is broken on Windows (ngff-zarr issue #241).
+    # The workaround is to write to .ome.zarr first and then convert afterwards via convert_hcs_omezarr2ozx.
+    # convert_czi2hcs_ngff applies this workaround automatically on Windows.
+    write_ozx_directly: bool = False  # keep False on Windows; True only works reliably on Linux/macOS
 
     # Backend library selection: OME_ZARR (ome-zarr-py) or NGFF_ZARR (ngff-zarr)
     # ome_package = omezarr_package.OME_ZARR

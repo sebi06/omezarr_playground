@@ -14,6 +14,7 @@ import gc
 import logging
 import os
 import shutil
+import sys
 import time
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -247,10 +248,28 @@ def convert_czi2hcs_ngff(
         version=version,
     )
 
-    hcs_plate = HCSPlate(store=zarr_output_path, plate_metadata=plate_metadata)
-    to_hcs_zarr(hcs_plate, zarr_output_path)
+    # On Windows, HCSPlateWriter.__exit__ calls write_store_to_zip while the internal
+    # temp store is still open, which causes a PermissionError (ngff-zarr issue #241).
+    # Workaround: always write to a .ome.zarr directory on Windows, then zip afterwards.
+    _win_ozx_workaround = write_ozx_directly and sys.platform == "win32"
+    if _win_ozx_workaround:
+        logger.warning(
+            "write_ozx_directly=True is not supported on Windows (ngff-zarr issue #241). "
+            "Writing to .ome.zarr first, then converting to .ozx."
+        )
+        write_path = base_dir / f"{stem}_ngff_plate.ome.zarr"
+        # Remove any pre-existing intermediate directory
+        if write_path.exists():
+            shutil.rmtree(write_path)
+            gc.collect()
+            time.sleep(0.2)
+    else:
+        write_path = zarr_output_path
 
-    with HCSPlateWriter(str(zarr_output_path), plate_metadata) as writer:
+    hcs_plate = HCSPlate(store=write_path, plate_metadata=plate_metadata)
+    to_hcs_zarr(hcs_plate, write_path)
+
+    with HCSPlateWriter(str(write_path), plate_metadata) as writer:
         for well in wells:
             row_name, col_name = well.path.split("/")
             current_well_id = well.path.replace("/", "")
@@ -265,6 +284,15 @@ def convert_czi2hcs_ngff(
                     column_name=col_name,
                     field_index=fi,
                 )
+
+    if _win_ozx_workaround:
+        # All file handles are now closed; safe to zip on Windows
+        from .hcs import convert_hcs_omezarr2ozx
+
+        logger.info("Converting intermediate .ome.zarr to .ozx (Windows workaround)...")
+        gc.collect()
+        time.sleep(0.5)  # give Windows a moment to release remaining handles
+        zarr_output_path = convert_hcs_omezarr2ozx(write_path, remove_omezarr=True)
 
     logger.info("=" * 80)
     logger.info("Conversion completed successfully!")
