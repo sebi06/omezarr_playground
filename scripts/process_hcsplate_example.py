@@ -1,6 +1,13 @@
-from process_hcs_omezarr import process_hcs_omezarr
+from czi_omezarr_utils import process_hcs_omezarr
 from czi_omezarr_utils import create_well_plate_heatmap
+import logging
 import matplotlib.pyplot as plt
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
+)
 
 # Main execution
 if __name__ == "__main__":

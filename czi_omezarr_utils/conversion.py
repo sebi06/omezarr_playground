@@ -71,7 +71,6 @@ def convert_czi2hcs_omezarr(
         log_file_path = Path(log_file_path)
 
     setup_logging(log_file_path)
-    logger = logging.getLogger(__name__)
 
     logger.info("=" * 80)
     logger.info("CZI to HCS OME-ZARR Conversion Started (OME-ZARR format)")
@@ -184,7 +183,6 @@ def convert_czi2hcs_ngff(
         log_file_path = Path(log_file_path)
 
     setup_logging(log_file_path)
-    logger = logging.getLogger(__name__)
 
     logger.info("=" * 80)
     logger.info("CZI to HCS OME-ZARR Conversion Started (NGFF-ZARR format)")
@@ -331,7 +329,6 @@ def write_omezarr(
         log_file_path = zarr_path_obj.parent / f"{zarr_path_obj.stem}_omezarr.log"
 
     setup_logging(log_file_path)
-    logger = logging.getLogger(__name__)
 
     logger.info("=" * 80)
     logger.info("Writing OME-ZARR format (ome-zarr-py)")
@@ -428,7 +425,6 @@ def write_omezarr_ngff(
         log_file_path = zarr_path_obj.parent / f"{zarr_path_obj.stem}_ngff.log"
 
     setup_logging(log_file_path)
-    logger = logging.getLogger(__name__)
 
     logger.info("=" * 80)
     logger.info("Writing OME-ZARR NGFF format with multiscale")

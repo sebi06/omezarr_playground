@@ -16,7 +16,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from czi_omezarr_utils import convert_czi2hcs_ngff, convert_czi2hcs_omezarr
+from czi_omezarr_utils import convert_czi2hcs_ngff, convert_czi2hcs_omezarr, setup_logging
 import ngff_zarr as nz
 
 
@@ -107,14 +107,7 @@ Notes:
     log_file_path = czi_filepath.parent / f"{czi_filepath.stem}_hcs_omezarr.log"
 
     # Configure logging with both console and file output
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler(str(log_file_path)),
-        ],
-    )
+    setup_logging(log_file_path, force_reconfigure=True)
     logger = logging.getLogger(__name__)
 
     logger.info("=" * 80)

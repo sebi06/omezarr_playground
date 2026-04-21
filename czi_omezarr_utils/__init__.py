@@ -24,6 +24,7 @@ Public API — import everything from here so callers need only one import line:
         create_channel_list,
         ArrayProcessor,
         create_well_plate_heatmap,
+        process_hcs_omezarr,
     )
 """
 
@@ -43,7 +44,7 @@ from .hcs import (
     convert_hcs_omezarr2ozx,
 )
 from .display import get_fieldimage, get_display, create_channel_list
-from .processing import ArrayProcessor
+from .processing import ArrayProcessor, process_hcs_omezarr
 from .plotting import create_well_plate_heatmap
 
 __all__ = [
@@ -63,5 +64,6 @@ __all__ = [
     "get_display",
     "create_channel_list",
     "ArrayProcessor",
+    "process_hcs_omezarr",
     "create_well_plate_heatmap",
 ]
