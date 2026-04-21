@@ -10,17 +10,17 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
-    "czitools",
-    "ngff-zarr==0.28.1",
-    "ome-zarr",
+    "czitools>=0.17.0",
+    "ngff-zarr==0.34.0",
+    "ome-zarr>=0.16.0",
     "zarr>=3.0",
-    "numpy",
-    "xarray",
-    "dask",
-    "scikit-image",
-    "pandas",
-    "seaborn",
-    "matplotlib",
+    "numpy>=2.0",
+    "xarray>=2026.2.0",
+    "dask>=2026.1.2",
+    "scikit-image>=0.26.0",
+    "pandas>=3.0",
+    "seaborn>=0.13.2",
+    "matplotlib>=3.7.0",
 ]
 
 [tool.setuptools.packages.find]

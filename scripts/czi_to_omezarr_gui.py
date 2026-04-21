@@ -47,6 +47,8 @@ import zarr
 import ngff_zarr as nz
 from importlib.metadata import version
 
+logger = logging.getLogger(__name__)
+
 
 # ============================================================================
 # Module-level Global Variables
@@ -113,7 +115,7 @@ def update_log_display() -> None:
                     log_viewer.value += new_content
                     log_last_position = f.tell()
         except Exception as e:
-            print(f"Log update error: {e}")
+            logger.warning("Log update error: %s", e)
 
 
 def read_czi_metadata(filepath: Path) -> tuple[Optional[CziMetadata], int]:
@@ -147,15 +149,15 @@ def read_czi_metadata(filepath: Path) -> tuple[Optional[CziMetadata], int]:
         _dims = {k: getattr(image, k, None) for k in _dim_keys if getattr(image, k, None) is not None}
         _dims_str = ", ".join(f"{k}={v}" for k, v in _dims.items())
 
-        print("✓ Metadata loaded successfully")
-        print(f"  - File: {filepath.name}")
-        print(f"  - Dimensions: {_dims_str}")
-        print(f"  - Number of scenes: {max_scenes}")
+        logger.info("Metadata loaded successfully")
+        logger.info("  - File: %s", filepath.name)
+        logger.info("  - Dimensions: %s", _dims_str)
+        logger.info("  - Number of scenes: %d", max_scenes)
 
         return mdata, max_scenes
 
     except Exception as e:
-        print(f"✗ Error reading metadata: {e}")
+        logger.error("Error reading metadata: %s", e)
         return None, 1
 
 
@@ -187,7 +189,6 @@ def perform_conversion(
         # Setup logging
         log_file_path = filepath.parent / f"{filepath.stem}_conversion.log"
         setup_logging(str(log_file_path), force_reconfigure=True)
-        logger = logging.getLogger(__name__)
 
         logger.info("=" * 80)
         logger.info("CZI to OME-ZARR Conversion Started")
@@ -202,7 +203,7 @@ def perform_conversion(
 
         # ========== HCS Format Conversion ==========
         if write_hcs:
-            print(f"🔄 Converting to HCS-ZARR format using {package_choice.name}...")
+            logger.info("Converting to HCS-ZARR format using %s...", package_choice.name)
 
             if package_choice == omezarr_package.OME_ZARR:
                 output_path = convert_czi2hcs_omezarr(
@@ -240,11 +241,11 @@ def perform_conversion(
                         log_file_path=str(log_file_path),
                     )
 
-            print(f"✅ HCS-ZARR created: {output_path}")
+            logger.info("HCS-ZARR created: %s", output_path)
 
         # ========== Standard OME-ZARR Conversion ==========
         else:
-            print(f"🔄 Converting scene {scene_id} to OME-ZARR format using {package_choice.name}...")
+            logger.info("Converting scene %d to OME-ZARR format using %s...", scene_id, package_choice.name)
 
             # Read the CZI file as a 6D array
             array, mdata = read_tools.read_6darray(str(filepath), planes={"S": (scene_id, scene_id)}, use_xarray=True)
@@ -252,7 +253,7 @@ def perform_conversion(
             # Extract the specified scene (remove Scene dimension to get 5D array)
             assert isinstance(array, xr.DataArray), "Expected xarray DataArray from read_6darray with use_xarray=True"
             array = array.squeeze("S")
-            print(f"📊 Array shape: {array.shape}, dtype: {array.dtype}")
+            logger.info("Array shape: %s, dtype: %s", array.shape, array.dtype)
 
             if package_choice == omezarr_package.OME_ZARR:
                 # Generate output path
@@ -262,7 +263,7 @@ def perform_conversion(
 
                 output_path = write_omezarr(array, zarr_path=str(zarr_output_path), metadata=mdata, overwrite=True)
 
-                print(f"✅ OME-ZARR created: {output_path}")
+                logger.info("OME-ZARR created: %s", output_path)
 
             elif package_choice == omezarr_package.NGFF_ZARR:
 
@@ -278,7 +279,7 @@ def perform_conversion(
 
                 output_path = str(zarr_output_path)
 
-                print(f"✅ OME-ZARR created: {output_path}")
+                logger.info("OME-ZARR created: %s", output_path)
 
         # Note: napari viewer will be opened on main thread after conversion completes
 
@@ -290,10 +291,7 @@ def perform_conversion(
         return str(output_path) if output_path is not None else None
 
     except Exception as e:
-        print(f"✗ Conversion failed: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.error("Conversion failed: %s", e, exc_info=True)
         return None
 
 
@@ -524,7 +522,7 @@ def finish_conversion(output_path: Optional[str], should_open_napari: bool = Fal
         import json
         from napari.utils.colormaps import Colormap
 
-        print("🎨 Opening in napari viewer...")
+        logger.info("Opening in napari viewer...")
         try:
             viewer = napari.Viewer()
             viewer.open(output_path, plugin="napari-ome-zarr")
@@ -547,11 +545,11 @@ def finish_conversion(output_path: Optional[str], should_open_napari: bool = Fal
                             name=f"ch_{hex_color}",
                         )
                 except Exception as ce:
-                    print(f"⚠️ Could not apply channel colors: {ce}")
+                    logger.warning("Could not apply channel colors: %s", ce)
 
-            print("✅ Napari viewer opened successfully")
+            logger.info("Napari viewer opened successfully")
         except Exception as e:
-            print(f"⚠️ Failed to open in napari: {e}")
+            logger.warning("Failed to open in napari: %s", e)
 
     # Update UI
     if output_path:
@@ -868,7 +866,7 @@ def on_file_changed(value: Path) -> None:
 try:
     czi_to_omezarr_converter.czi_file.min_width = 600
 except AttributeError as e:
-    print(f"Warning: Could not set file selector width: {e}")
+    logger.warning("Could not set file selector width: %s", e)
 
 update_use_ozx_format_enabled_state()
 
@@ -927,13 +925,15 @@ if __name__ == "__main__":
     """
     Run the application as a standalone Qt window.
     """
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+
     # Create and show the GUI
     gui = create_gui()
 
-    print("=" * 60)
-    print("CZI to OME-ZARR Converter")
-    print("=" * 60)
-    print("\nApplication started. Close the window to exit.")
+    logger.info("=" * 60)
+    logger.info("CZI to OME-ZARR Converter")
+    logger.info("=" * 60)
+    logger.info("Application started. Close the window to exit.")
 
     # Set window title before showing (this blocks until the window is closed)
     gui.native.setWindowTitle("CZI --> OME-ZARR Converter Playground")
