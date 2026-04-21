@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Optional
 from magicgui import magicgui, widgets
 from czitools.metadata_tools.czi_metadata import CziMetadata
-from ome_zarr_utils import (
+from czi_omezarr_utils import (
     omezarr_package,
     convert_czi2hcs_omezarr,
     convert_czi2hcs_ngff,

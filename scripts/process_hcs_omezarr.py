@@ -1,7 +1,7 @@
 import logging
 import ngff_zarr as nz
 import numpy as np
-from processing_tools import ArrayProcessor
+from czi_omezarr_utils import ArrayProcessor
 
 # Configure logging
 logging.basicConfig(

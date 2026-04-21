@@ -13,10 +13,10 @@ Example:
 """
 
 import argparse
-
 import logging
 from pathlib import Path
-from ome_zarr_utils import convert_czi2hcs_ngff, convert_czi2hcs_omezarr
+
+from czi_omezarr_utils import convert_czi2hcs_ngff, convert_czi2hcs_omezarr
 import ngff_zarr as nz
 
 
@@ -33,7 +33,7 @@ Examples:
     # Use OME-ZARR format explicitly
     python convert2hcs_omezarr.py --czifile WP96_plate.czi --use_omezarr
 
-    # Use NGFF-ZARR format explicitly  
+    # Use NGFF-ZARR format explicitly
     python convert2hcs_omezarr.py --czifile WP96_plate.czi --use_ngffzarr
 
     # Specify custom output path and plate name
@@ -70,6 +70,7 @@ Notes:
         action="store_true",
         help="Use OME-ZARR format to create the HCS Plate Layout",
     )
+
     # Optional arguments
     parser.add_argument(
         "--zarr",
@@ -88,7 +89,6 @@ Notes:
         action="store_true",
         help="Overwrite existing OME-ZARR files if they exist (default: False)",
     )
-
     parser.add_argument(
         "--validate",
         action="store_true",
@@ -111,8 +111,8 @@ Notes:
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.StreamHandler(),  # Output to console
-            logging.FileHandler(str(log_file_path)),  # Output to log file
+            logging.StreamHandler(),
+            logging.FileHandler(str(log_file_path)),
         ],
     )
     logger = logging.getLogger(__name__)
@@ -128,25 +128,21 @@ Notes:
 
     # Determine output path
     if args.zarr is None:
-        # Generate default output path based on input filename
         zarr_output_path = str(czi_filepath.with_suffix("")) + "HCS.ome.zarr"
         logger.info(f"No output path specified, using default: {zarr_output_path}")
     else:
         zarr_output_path = args.zarr
         logger.info(f"Using specified output path: {zarr_output_path}")
 
-    # Log plate name and overwrite settings
     logger.info(f"Plate name: {args.plate}")
     logger.info(f"Overwrite mode: {args.overwrite}")
 
     if args.overwrite:
         logger.warning("Overwrite enabled: Existing OME-ZARR files will be removed!")
 
-    # Perform the conversion
     try:
         logger.info("Starting conversion process...")
 
-        # Determine which format to use based on arguments
         if args.use_omezarr:
             logger.info("Using OME-ZARR format for HCS Plate Layout.")
             result_path = convert_czi2hcs_omezarr(
@@ -161,7 +157,6 @@ Notes:
                 overwrite=args.overwrite,
             )
         else:
-            # Default behavior - use NGFF-ZARR as recommended
             logger.info("No format specified, using default NGFF-ZARR format for HCS Plate Layout.")
             result_path = convert_czi2hcs_ngff(
                 czi_filepath=str(czi_filepath),
@@ -169,20 +164,17 @@ Notes:
                 overwrite=args.overwrite,
             )
 
-        # Log successful completion
         logger.info("=" * 80)
         logger.info("Conversion completed successfully!")
         logger.info(f"Output HCS OME-ZARR file: {result_path}")
         logger.info("=" * 80)
 
-        # Optional validation step
         if args.validate:
             logger.info("Validating created HCS-ZARR file against schema...")
             hcs_plate = nz.from_hcs_zarr(zarr_output_path, validate=args.validate)
             logger.info("Validation successful.")
 
     except Exception as e:
-        # Log any errors that occur during conversion
         logger.error("=" * 80)
         logger.error(f"Conversion failed with error: {type(e).__name__}")
         logger.error(f"Error message: {str(e)}")

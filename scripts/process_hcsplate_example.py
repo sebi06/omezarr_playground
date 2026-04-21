@@ -1,5 +1,5 @@
 from process_hcs_omezarr import process_hcs_omezarr
-from plotting_utils import create_well_plate_heatmap
+from czi_omezarr_utils import create_well_plate_heatmap
 import matplotlib.pyplot as plt
 
 # Main execution

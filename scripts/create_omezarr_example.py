@@ -12,7 +12,7 @@ Supports two backend libraries:
 """
 
 import logging
-from ome_zarr_utils import (
+from czi_omezarr_utils import (
     convert_czi2hcs_omezarr,
     convert_czi2hcs_ngff,
     omezarr_package,

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "czi-omezarr-utils"
+version = "0.1.0"
+description = "Utilities for converting Carl Zeiss Image (CZI) files to OME-ZARR format"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "czitools",
+    "ngff-zarr==0.28.1",
+    "ome-zarr",
+    "zarr>=3.0",
+    "numpy",
+    "xarray",
+    "dask",
+    "scikit-image",
+    "pandas",
+    "seaborn",
+    "matplotlib",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["czi_omezarr_utils*"]
