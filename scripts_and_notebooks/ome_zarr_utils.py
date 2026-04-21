@@ -81,7 +81,11 @@ class omezarr_package(Enum):
     NGFF_ZARR = 2
 
 
-def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_path: Optional[str] = None) -> str:
+def convert_czi2hcs_omezarr(
+    czi_filepath: Union[str, os.PathLike, Path],
+    overwrite: bool = True,
+    log_file_path: Optional[Union[str, os.PathLike, Path]] = None,
+) -> Path:
     """Convert CZI file to OME-ZARR HCS (High Content Screening) format.
 
     This function converts a CZI (Carl Zeiss Image) file containing plate data into
@@ -94,16 +98,19 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
         log_file_path: Path to log file. If None, creates default log file based on input filename.
 
     Returns:
-        str: Path to the output ZARR file (.ngff_plate.zarr)
+        Path: Path to the output OME-ZARR directory (e.g. '<stem>_HCSplate.ome.zarr')
 
     Note:
         The output format follows the OME-NGFF specification for HCS data,
         organizing the data in a plate/row/column/field hierarchy.
     """
-    # Set up logging if not already configured
+    # Normalize path inputs to `Path`
+    czi_path = Path(czi_filepath)
     if log_file_path is None:
-        czi_path = Path(czi_filepath)
-        log_file_path = str(czi_path.parent / f"{czi_path.stem}_hcs_omezarr.log")
+        log_file_path = czi_path.parent / f"{czi_path.stem}_hcs_omezarr.log"
+    else:
+        # Ensure log_file_path is a Path for setup_logging compatibility
+        log_file_path = Path(log_file_path)
 
     setup_logging(log_file_path)
     logger = logging.getLogger(__name__)
@@ -111,10 +118,10 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
     logger.info("=" * 80)
     logger.info("CZI to HCS OME-ZARR Conversion Started (OME-ZARR format)")
     logger.info("=" * 80)
-    logger.info(f"Input CZI file: {Path(czi_filepath).absolute()}")
+    logger.info(f"Input CZI file: {czi_path.absolute()}")
 
     # Define output path
-    zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ome.zarr")
+    zarr_output_path = czi_path.parent / f"{czi_path.stem}_HCSplate.ome.zarr"
 
     # Handle existing files
     if zarr_output_path.exists():
@@ -123,10 +130,10 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
             shutil.rmtree(zarr_output_path)
         else:
             logger.info(f"File exists at {zarr_output_path}. Set overwrite=True to remove.")
-            return str(zarr_output_path)
+            return zarr_output_path
 
     # Read CZI file
-    array6d, mdata = read_tools.read_6darray(czi_filepath, use_xarray=True)
+    array6d, mdata = read_tools.read_6darray(str(czi_path), use_xarray=True)
 
     assert mdata.sample is not None, "CZI metadata is missing sample/plate information"
     assert isinstance(array6d, xr.DataArray), "Expected xarray DataArray from read_6darray with use_xarray=True"
@@ -181,7 +188,7 @@ def convert_czi2hcs_omezarr(czi_filepath: str, overwrite: bool = True, log_file_
     logger.info(f"Output HCS OME-ZARR file: {zarr_output_path}")
     logger.info("=" * 80)
 
-    return str(zarr_output_path)
+    return zarr_output_path
 
 
 def extract_well_coordinates(
@@ -466,14 +473,14 @@ def define_plate_by_well_count(well_count: int, field_count: int = 1) -> Plate:
 
 
 def convert_czi2hcs_ngff(
-    czi_filepath: str,
+    czi_filepath: Union[str, os.PathLike, Path],
     plate_name: str = "Automated Plate",
     overwrite: bool = True,
-    log_file_path: Optional[Union[str, Path]] = None,
+    log_file_path: Optional[Union[str, os.PathLike, Path]] = None,
     write_ozx_directly: bool = False,
     version: str = "0.5",
-    output_dir: Optional[str] = None,
-) -> str:
+    output_dir: Optional[Union[str, os.PathLike, Path]] = None,
+) -> Path:
     """Convert CZI file to OME-ZARR HCS format using NGFF-ZARR package.
 
     Args:
@@ -486,17 +493,21 @@ def convert_czi2hcs_ngff(
         output_dir: Optional directory to save the output file. If None, uses input file's directory.
 
     Returns:
-        str: Path to the output ZARR file
+        Path: Path to the output OME-ZARR directory or OZX file
     """
 
+    # Normalize inputs
     czi_path = Path(czi_filepath)
+    output_path_obj: Optional[Path] = Path(output_dir) if output_dir is not None else None
 
-    if output_dir is not None and log_file_path is None:
-        log_file_path = Path(output_dir) / f"{czi_path.stem}_hcs_ngff.log"
-
-    # Set up logging if not already configured
-    if output_dir is None and log_file_path is None:
-        log_file_path = czi_path.parent / f"{czi_path.stem}_hcs_ngff.log"
+    # Determine log file path
+    if log_file_path is None:
+        if output_path_obj is not None:
+            log_file_path = output_path_obj / f"{czi_path.stem}_hcs_ngff.log"
+        else:
+            log_file_path = czi_path.parent / f"{czi_path.stem}_hcs_ngff.log"
+    else:
+        log_file_path = Path(log_file_path)
 
     setup_logging(log_file_path)
     logger = logging.getLogger(__name__)
@@ -504,20 +515,22 @@ def convert_czi2hcs_ngff(
     logger.info("=" * 80)
     logger.info("CZI to HCS OME-ZARR Conversion Started (NGFF-ZARR format)")
     logger.info("=" * 80)
-    logger.info(f"Input CZI file: {Path(czi_filepath).absolute()}")
+    logger.info(f"Input CZI file: {czi_path.absolute()}")
     logger.info(f"Plate name: {plate_name}")
 
-    # Define output path
+    # Define output path.
+    # ngff-zarr uses the _ngff_plate suffix to avoid colliding with the ome-zarr-py
+    # output (_HCSplate.ome.zarr), which allows both backends to coexist on disk.
     if not write_ozx_directly:
-        if output_dir is not None:
-            zarr_output_path = Path(output_dir) / f"{czi_path.stem}_HCSplate.ome.zarr"
+        if output_path_obj is not None:
+            zarr_output_path = output_path_obj / f"{czi_path.stem}_ngff_plate.ome.zarr"
         else:
-            zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ome.zarr")
+            zarr_output_path = czi_path.parent / f"{czi_path.stem}_ngff_plate.ome.zarr"
     else:
-        if output_dir is not None:
-            zarr_output_path = Path(output_dir) / f"{czi_path.stem}_HCSplate.ozx"
+        if output_path_obj is not None:
+            zarr_output_path = output_path_obj / f"{czi_path.stem}_ngff_plate.ozx"
         else:
-            zarr_output_path = Path(czi_filepath[:-4] + "_HCSplate.ozx")
+            zarr_output_path = czi_path.parent / f"{czi_path.stem}_ngff_plate.ozx"
 
     # Handle existing files
     if zarr_output_path.exists():
@@ -535,10 +548,10 @@ def convert_czi2hcs_ngff(
 
         else:
             logger.info(f"File exists at {zarr_output_path}. Set overwrite=True to remove.")
-            return str(zarr_output_path)
+            return zarr_output_path
 
     # Read CZI file
-    array6d, mdata = read_tools.read_6darray(czi_filepath, use_xarray=True)
+    array6d, mdata = read_tools.read_6darray(str(czi_path), use_xarray=True)
 
     assert mdata.sample is not None, "CZI metadata is missing sample/plate information"
     assert isinstance(array6d, xr.DataArray), "Expected xarray DataArray from read_6darray with use_xarray=True"
@@ -605,7 +618,7 @@ def convert_czi2hcs_ngff(
     logger.info(f"Output HCS OME-ZARR file: {zarr_output_path}")
     logger.info("=" * 80)
 
-    return str(zarr_output_path)
+    return zarr_output_path
 
 
 def get_fieldimage(
@@ -717,7 +730,7 @@ def write_omezarr(
     metadata: CziMetadata,
     overwrite: bool = False,
     log_file_path: Optional[Union[str, Path]] = None,
-) -> Optional[str]:
+) -> Optional[Path]:
     """
     Write a 5D array to OME-ZARR format.
 
@@ -810,7 +823,7 @@ def write_omezarr(
     logger.info(f"Output file: {zarr_path}")
     logger.info("=" * 80)
 
-    return str(zarr_path)
+    return Path(zarr_path)
 
 
 def write_omezarr_ngff(
@@ -990,16 +1003,27 @@ def convert_hcs_omezarr2ozx(
     if not hcs_omezarr_path.exists():
         logger.info(f"OME-ZARR does not exist at {str(hcs_omezarr_path)}. Cannot convert to OZX.")
         return None
+
+    logger.info(f"Converting HCS OME-ZARR at {str(hcs_omezarr_path)} to OZX format.")
+
+    # Build output .ozx path by replacing the trailing `.ome.zarr` suffix with `.ozx`.
+    # Use string replace on the final name to avoid issues with multi-part suffixes.
+    if hcs_omezarr_path.name.endswith(".ome.zarr"):
+        ozx_name = hcs_omezarr_path.name.replace(".ome.zarr", ".ozx")
     else:
-        logger.info(f"Converting HCS OME-ZARR at {str(hcs_omezarr_path)} to OZX format.")
-        write_store_to_zip(
-            str(hcs_omezarr_path),  # Source plate directory
-            str(hcs_omezarr_path)[:-9] + ".ozx",  # Output .ozx file
-            version=version,  # Required for .ozx
-        )
+        # Fallback: append .ozx to the basename without extension
+        ozx_name = hcs_omezarr_path.name + ".ozx"
+
+    ozx_path = hcs_omezarr_path.parent / ozx_name
+
+    write_store_to_zip(
+        str(hcs_omezarr_path),  # Source plate directory
+        str(ozx_path),  # Output .ozx file
+        version=version,  # Required for .ozx
+    )
 
     if remove_omezarr:
         logger.info(f"Removing original OME-ZARR directory at {str(hcs_omezarr_path)}.")
         shutil.rmtree(hcs_omezarr_path, ignore_errors=False, onexc=None)
 
-    return Path(str(hcs_omezarr_path)[:-8] + ".ozx")
+    return ozx_path

@@ -58,8 +58,12 @@ def main() -> None:
 
     # Option 2: Use absolute path to external test data
     # filepath: str = r"F:\Github\omezarr_playground\data\CellDivision5D.czi"
-    # filepath: str = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI.czi"
-    filepath: str = r"F:\Testdata_Zeiss\OME_ZARR_Testfiles\384well_DAPI_sm.czi"
+    filepath: str = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI.czi"
+    # filepath: str = r"F:\Testdata_Zeiss\OME_ZARR_Testfiles\384well_DAPI_sm.czi"
+
+    # ========== Validate Input File ==========
+    if not Path(filepath).exists():
+        raise FileNotFoundError(f"CZI file not found: {filepath}")
 
     # ========== Setup Logging (Master Log File) ==========
     czi_path = Path(filepath)
@@ -69,22 +73,18 @@ def main() -> None:
     setup_logging(str(log_file_path), force_reconfigure=True)
     logger = logging.getLogger(__name__)
 
-    # ========== Validate Input File ==========
-    if not Path(filepath).exists():
-        raise FileNotFoundError(f"CZI file not found: {filepath}")
-
     # ========== HCS Format Conversion ==========
     if write_hcs:
         logger.info(f"Converting CZI to HCS-ZARR format using {ome_package.name}...")
 
         if ome_package == omezarr_package.OME_ZARR:
             logger.info("Using ome-zarr package for HCS conversion...")
-            zarr_output_path = convert_czi2hcs_omezarr(filepath, overwrite=True)
+            zarr_output_path = convert_czi2hcs_omezarr(czi_path, overwrite=True)
 
         elif ome_package == omezarr_package.NGFF_ZARR:
             logger.info("Using ngff-zarr package for HCS conversion...")
             zarr_output_path = convert_czi2hcs_ngff(
-                filepath,
+                czi_path,
                 plate_name=platename,
                 overwrite=True,
                 write_ozx_directly=write_ozx_directly,
@@ -97,7 +97,11 @@ def main() -> None:
 
         # Optional: Convert the HCS-ZARR directory to single-file OZX format
         if convert_hc2ozx_after_writing:
-            zarr_output_path = convert_hcs_omezarr2ozx(zarr_output_path, remove_omezarr=True)
+            ozx_path = convert_hcs_omezarr2ozx(zarr_output_path, remove_omezarr=True)
+            if ozx_path is not None:
+                zarr_output_path = ozx_path
+            else:
+                logger.warning("convert_hcs_omezarr2ozx returned None; keeping original OME-ZARR path")
 
         # Validate the HCS-ZARR file against OME-NGFF specification
         # This ensures proper metadata structure for multi-well plate data
@@ -120,13 +124,11 @@ def main() -> None:
 
         if ome_package == omezarr_package.OME_ZARR:
             # Generate output path with .ome.zarr extension
-            zarr_output_path: Path = Path(str(filepath)[:-4] + ".ome.zarr")
+            zarr_output_path = Path(str(filepath)[:-4] + ".ome.zarr")
 
             # Write OME-ZARR using ome-zarr-py backend
-            zarr_output_path: Optional[str] = write_omezarr(
-                array, zarr_path=str(zarr_output_path), metadata=mdata, overwrite=True
-            )
-            logger.info(f"Written OME-ZARR using ome-zarr-py: {zarr_output_path}")
+            written_path = write_omezarr(array, zarr_path=zarr_output_path, metadata=mdata, overwrite=True)
+            logger.info(f"Written OME-ZARR using ome-zarr-py: {written_path}")
 
         elif ome_package == omezarr_package.NGFF_ZARR:
 

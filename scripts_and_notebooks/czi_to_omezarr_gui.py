@@ -38,6 +38,8 @@ from ome_zarr_utils import (
 from czitools.read_tools import read_tools
 import xarray as xr
 import logging
+import shutil
+import tempfile
 import threading
 from qtpy.QtCore import QTimer
 import ome_zarr.format
@@ -74,6 +76,9 @@ log_timer: Optional[QTimer] = None
 
 # Path to napari viewer output (unused - kept for compatibility)
 napari_viewer_path: Optional[str] = None
+
+# Re-entrancy guard for update_ozx_child_states to prevent signal cascades
+_ozx_state_updating: bool = False
 
 # Default parent directory for file browser
 try:
@@ -204,16 +209,36 @@ def perform_conversion(
                     czi_filepath=str(filepath), overwrite=True, log_file_path=str(log_file_path)
                 )
             elif package_choice == omezarr_package.NGFF_ZARR:
-                output_path = convert_czi2hcs_ngff(
-                    czi_filepath=str(filepath),
-                    overwrite=True,
-                    write_ozx_directly=write_ozx_directly,
-                    log_file_path=str(log_file_path),
-                )
-
-            # covert to OZX after writing if requested
-            if use_ozx_format and not write_ozx_directly and write_ozx_afterwards:
-                output_path = convert_hcs_omezarr2ozx(output_path, remove_omezarr=True)
+                if use_ozx_format and write_ozx_afterwards and not write_ozx_directly:
+                    # OZX-after mode: write the intermediate .ome.zarr to a temp directory
+                    # so it never collides with (or deletes) an existing _ngff_plate.ome.zarr
+                    # produced by a previous conversion in the same session.
+                    tmp_dir = tempfile.mkdtemp(prefix="omezarr_hcs_tmp_")
+                    try:
+                        tmp_zarr = convert_czi2hcs_ngff(
+                            czi_filepath=str(filepath),
+                            overwrite=True,
+                            write_ozx_directly=False,
+                            log_file_path=str(log_file_path),
+                            output_dir=tmp_dir,
+                        )
+                        # Zip the temp zarr to an ozx also inside tmp_dir
+                        tmp_ozx = convert_hcs_omezarr2ozx(tmp_zarr, remove_omezarr=True)
+                        if tmp_ozx is not None:
+                            # Move the finished ozx to the proper output directory
+                            final_ozx = filepath.parent / tmp_ozx.name
+                            shutil.move(str(tmp_ozx), str(final_ozx))
+                            output_path = str(final_ozx)
+                    finally:
+                        # Clean up temp directory (should be empty after move)
+                        shutil.rmtree(tmp_dir, ignore_errors=True)
+                else:
+                    output_path = convert_czi2hcs_ngff(
+                        czi_filepath=str(filepath),
+                        overwrite=True,
+                        write_ozx_directly=write_ozx_directly,
+                        log_file_path=str(log_file_path),
+                    )
 
             print(f"✅ HCS-ZARR created: {output_path}")
 
@@ -300,7 +325,7 @@ def perform_conversion(
     },
     use_ozx_write_directly={
         "label": "Create OZX archive during writing",
-        "tooltip": "Enable OZX format for single-file OME-ZARR storage during writing",
+        "tooltip": "Write directly into a single-file OZX archive (NGFF-ZARR only, not available in HCS mode)",
     },
     use_ozx_after_writing={
         "label": "Create OZX archive after writing",
@@ -574,6 +599,16 @@ def on_convert_clicked() -> None:
         info_display.value = "⚠️ Please click 'Read Metadata' first"
         return
 
+    # Validate OZX sub-option selection
+    if use_ozx_format:
+        _write_directly = czi_to_omezarr_converter.use_ozx_write_directly.value
+        _write_afterwards = czi_to_omezarr_converter.use_ozx_after_writing.value
+        if not _write_directly and not _write_afterwards:
+            info_display.value = (
+                "⚠️ 'Use Single-File OME-ZARR (.ozx)' is enabled — " "select at least one OZX write option."
+            )
+            return
+
     # Clear log viewer and update status
     log_viewer.value = "Starting conversion...\n"
     info_display.value = "⏳ Converting... Please wait."
@@ -639,36 +674,56 @@ def on_convert_clicked() -> None:
 
 
 def update_ozx_child_states() -> None:
-    """Synchronize dependent OZX options with the master toggle."""
+    """Synchronize dependent OZX options with the master toggle.
 
-    master_active = bool(czi_to_omezarr_converter.use_ozx_format.value)
-    hcs_enabled = bool(czi_to_omezarr_converter.write_hcs.value)
+    A re-entrancy guard (_ozx_state_updating) prevents the signal cascade that
+    would otherwise occur when the auto-select logic sets a child value and that
+    change immediately fires another callback that calls this function again.
+    Without the guard, checking 'Create OZX archive during writing' would be
+    immediately undone by the cascade: auto-select sets after=True →
+    on_use_ozx_after_writing_changed(True) clears directly=False.
+    """
+    global _ozx_state_updating
+    if _ozx_state_updating:
+        return
+    _ozx_state_updating = True
+    try:
+        master_active = bool(czi_to_omezarr_converter.use_ozx_format.value)
+        hcs_enabled = bool(czi_to_omezarr_converter.write_hcs.value)
 
-    allow_direct = master_active and not hcs_enabled
-    allow_after = master_active
+        allow_direct = master_active and not hcs_enabled
+        allow_after = master_active
 
-    czi_to_omezarr_converter.use_ozx_write_directly.enabled = allow_direct
-    czi_to_omezarr_converter.use_ozx_after_writing.enabled = allow_after
+        czi_to_omezarr_converter.use_ozx_write_directly.enabled = allow_direct
+        czi_to_omezarr_converter.use_ozx_after_writing.enabled = allow_after
 
-    if not allow_direct and czi_to_omezarr_converter.use_ozx_write_directly.value:
-        czi_to_omezarr_converter.use_ozx_write_directly.value = False
+        if not allow_direct and czi_to_omezarr_converter.use_ozx_write_directly.value:
+            czi_to_omezarr_converter.use_ozx_write_directly.value = False
 
-    if not allow_after and czi_to_omezarr_converter.use_ozx_after_writing.value:
-        czi_to_omezarr_converter.use_ozx_after_writing.value = False
+        if not allow_after and czi_to_omezarr_converter.use_ozx_after_writing.value:
+            czi_to_omezarr_converter.use_ozx_after_writing.value = False
 
-    if master_active:
-        if (
-            czi_to_omezarr_converter.use_ozx_write_directly.value
-            and czi_to_omezarr_converter.use_ozx_after_writing.value
-        ):
-            # Prefer the mode that remains permitted (after-writing when HCS, otherwise keep latest selection)
-            if hcs_enabled:
-                czi_to_omezarr_converter.use_ozx_write_directly.value = False
-            else:
-                czi_to_omezarr_converter.use_ozx_after_writing.value = False
-    else:
-        czi_to_omezarr_converter.use_ozx_write_directly.value = False
-        czi_to_omezarr_converter.use_ozx_after_writing.value = False
+        if master_active:
+            if (
+                czi_to_omezarr_converter.use_ozx_write_directly.value
+                and czi_to_omezarr_converter.use_ozx_after_writing.value
+            ):
+                # Mutual exclusion: prefer 'after' in HCS mode, 'directly' otherwise
+                if hcs_enabled:
+                    czi_to_omezarr_converter.use_ozx_write_directly.value = False
+                else:
+                    czi_to_omezarr_converter.use_ozx_after_writing.value = False
+            elif (
+                not czi_to_omezarr_converter.use_ozx_write_directly.value
+                and not czi_to_omezarr_converter.use_ozx_after_writing.value
+            ):
+                # At least one sub-option must be active — default to 'after writing'
+                czi_to_omezarr_converter.use_ozx_after_writing.value = True
+        else:
+            czi_to_omezarr_converter.use_ozx_write_directly.value = False
+            czi_to_omezarr_converter.use_ozx_after_writing.value = False
+    finally:
+        _ozx_state_updating = False
 
     update_show_napari_enabled_state()
 
@@ -713,8 +768,9 @@ def on_use_ozx_format_changed(_: bool) -> None:
 
 def on_use_ozx_write_directly_changed(value: bool) -> None:
     """Ensure mutually exclusive OZX modes when direct write is toggled."""
-
-    if value:
+    # Only clear the other side if it is currently checked; avoids emitting
+    # spurious signals that feed back into update_ozx_child_states.
+    if value and czi_to_omezarr_converter.use_ozx_after_writing.value:
         czi_to_omezarr_converter.use_ozx_after_writing.value = False
 
     update_ozx_child_states()
@@ -722,8 +778,8 @@ def on_use_ozx_write_directly_changed(value: bool) -> None:
 
 def on_use_ozx_after_writing_changed(value: bool) -> None:
     """Ensure mutually exclusive OZX modes when post-write archive is toggled."""
-
-    if value:
+    # Only clear the other side if it is currently checked.
+    if value and czi_to_omezarr_converter.use_ozx_write_directly.value:
         czi_to_omezarr_converter.use_ozx_write_directly.value = False
 
     update_ozx_child_states()
