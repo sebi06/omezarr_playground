@@ -23,21 +23,26 @@ omezarr_playground/
 │   ├── CellDivision5D.czi          # Standard 5D CZI (TCZYX), no HCS
 │   └── WP96_4Pos_B4-10_DAPI.czi   # 96-well plate CZI for HCS conversion
 ├── images/                         # Documentation images
-├── scripts_and_notebooks/          # All working code lives here
-│   ├── ome_zarr_utils.py           # Core conversion library (primary utility module)
+├── czi_omezarr_utils/              # Installable utility package (primary library)
+│   ├── __init__.py                 # Public API — import everything from here
+│   ├── conversion.py               # Core CZI → OME-ZARR conversion functions
+│   ├── hcs.py                      # HCS plate helpers (wells, plate types, OZX)
+│   ├── display.py                  # Field image and channel display helpers
+│   ├── processing.py               # Image analysis (ArrayProcessor, process_hcs_omezarr)
+│   ├── plotting.py                 # Heatmap/visualization utilities
+│   └── logging_utils.py            # setup_logging, omezarr_package enum
+├── scripts/                        # Runnable CLI scripts and GUI launcher
 │   ├── czi_to_omezarr_gui.py       # MagicGUI application (main GUI module)
 │   ├── run_czi_converter_gui.py    # Launcher for the GUI application
-│   ├── convert2omezarr.py          # CLI: standard OME-ZARR conversion
 │   ├── convert2hcs_omezarr.py      # CLI: HCS plate conversion
 │   ├── create_omezarr_example.py   # Standalone example script
-│   ├── processing_tools.py         # Image analysis utilities (ArrayProcessor)
-│   ├── plotting_utils.py           # Heatmap/visualization utilities
-│   ├── process_hcs_omezarr.py      # HCS plate processing script
-│   ├── process_hcsplate_example.py # HCS plate processing example
-│   ├── visualize_omezarr_heatmap_marimo.py  # Marimo notebook for heatmaps
+│   └── process_hcsplate_example.py # HCS plate processing example
+├── notebooks/                      # Jupyter and Marimo notebooks
 │   ├── create_omezarr_marimo.py    # Marimo notebook for conversion
+│   ├── visualize_omezarr_heatmap_marimo.py  # Marimo notebook for heatmaps
 │   └── *.ipynb                     # Jupyter notebooks for exploration
 ├── env_omezarr.yml                 # Conda environment definition
+├── pyproject.toml                  # Package metadata and build config
 ├── README.md
 └── _archive/                       # Older/reference scripts (do not modify)
 ```
@@ -84,18 +89,18 @@ conda remove --name omezarr --all
 | `scikit-image` | Image processing (filtering, segmentation, morphology) |
 | `marimo` | Reactive notebook framework |
 
-> **Note:** `ngff-zarr 0.29.0` on PyPI has a known bug — `from_ngff_zarr.py` in the published wheel contains null bytes. Use `ngff-zarr==0.28.1` until this is fixed upstream.
+> **Note:** `ngff-zarr` is pinned to `0.34.0` in both `pyproject.toml` and `env_omezarr.yml`. Earlier releases (notably `0.29.0`) had a known bug where `from_ngff_zarr.py` contained null bytes; this was fixed in subsequent releases.
 
 ---
 
-## Core Module: `ome_zarr_utils.py`
+## Core Package: `czi_omezarr_utils`
 
-This is the primary utility module. All conversion functions should be imported from here.
+This is the installable utility package. All conversion functions should be imported from here (single import line from `__init__.py`).
 
 ### Enums
 
 ```python
-from ome_zarr_utils import omezarr_package
+from czi_omezarr_utils import omezarr_package
 
 omezarr_package.NGFF_ZARR  # ngff-zarr backend (recommended)
 omezarr_package.OME_ZARR   # ome-zarr-py backend
@@ -103,15 +108,25 @@ omezarr_package.OME_ZARR   # ome-zarr-py backend
 
 ### Key Functions
 
-| Function | Description |
-|---|---|
-| `setup_logging(log_file_path, force_reconfigure)` | Configure root logger with file + console handlers |
-| `write_omezarr(array, zarr_path, metadata, overwrite)` | Write 5D xarray (TCZYX) using ome-zarr-py |
-| `write_omezarr_ngff(array, zarr_path, metadata, scale_factors, overwrite)` | Write 5D xarray using ngff-zarr with multi-resolution pyramid |
-| `convert_czi2hcs_omezarr(czi_filepath, overwrite, log_file_path)` | Full CZI→HCS-ZARR pipeline using ome-zarr-py |
-| `convert_czi2hcs_ngff(czi_filepath, overwrite, write_ozx_directly, log_file_path)` | Full CZI→HCS-ZARR pipeline using ngff-zarr |
-| `convert_hcs_omezarr2ozx(zarr_path, remove_omezarr)` | Convert existing HCS-ZARR directory to `.ozx` zip archive |
-| `extract_well_coordinates(well_counter)` | Parse well IDs (e.g. `"B4"`) into row/col/path lists |
+| Function | Module | Description |
+|---|---|---|
+| `setup_logging(log_file_path, force_reconfigure)` | `logging_utils` | Configure root logger with file + console handlers |
+| `write_omezarr(array, zarr_path, metadata, overwrite)` | `conversion` | Write 5D xarray (TCZYX) using ome-zarr-py |
+| `write_omezarr_ngff(array, zarr_path, metadata, scale_factors, overwrite)` | `conversion` | Write 5D xarray using ngff-zarr with multi-resolution pyramid |
+| `convert_czi2hcs_omezarr(czi_filepath, overwrite, log_file_path)` | `conversion` | Full CZI→HCS-ZARR pipeline using ome-zarr-py |
+| `convert_czi2hcs_ngff(czi_filepath, overwrite, write_ozx_directly, log_file_path)` | `conversion` | Full CZI→HCS-ZARR pipeline using ngff-zarr |
+| `convert_hcs_omezarr2ozx(zarr_path, remove_omezarr)` | `hcs` | Convert existing HCS-ZARR directory to `.ozx` zip archive |
+| `extract_well_coordinates(well_counter)` | `hcs` | Parse well IDs (e.g. `"B4"`) into row/col/path lists |
+| `PlateConfiguration` | `hcs` | Dataclass for standard microplate format (rows, columns, name) |
+| `PlateType` | `hcs` | Enum of standard plate formats (6, 24, 48, 96, 384, 1536-well) |
+| `define_plate(plate_type)` | `hcs` | Build ngff-zarr `Plate` metadata from a `PlateType` |
+| `define_plate_by_well_count(well_count)` | `hcs` | Build `Plate` metadata from a total well count |
+| `get_fieldimage(zarr_path, well, field, channel, timepoint)` | `display` | Extract a single 2D field image from an HCS-ZARR |
+| `get_display(array, display_range)` | `display` | Normalise array to 8-bit for display |
+| `create_channel_list(metadata)` | `display` | Build a channel name list from CZI metadata |
+| `ArrayProcessor` | `processing` | Chain image-processing operations on 2D NumPy arrays |
+| `process_hcs_omezarr(zarr_path, ...)` | `processing` | Run per-well analysis pipeline on an HCS-ZARR store |
+| `create_well_plate_heatmap(results, ...)` | `plotting` | Render a seaborn heatmap from per-well result dict |
 
 ### Array Convention
 
@@ -120,6 +135,21 @@ All arrays are **5D xarray DataArrays** with labelled dimensions in order `(T, C
 ```python
 array, mdata = read_tools.read_6darray(filepath, planes={"S": (scene_id, scene_id)}, use_xarray=True)
 array = array.squeeze("S")  # → 5D (T, C, Z, Y, X)
+```
+
+### Installing the Package
+
+The package is installable in editable mode from the repo root:
+
+```bash
+conda activate omezarr
+pip install -e .
+```
+
+After installation, import with:
+
+```python
+from czi_omezarr_utils import write_omezarr_ngff, convert_czi2hcs_ngff, omezarr_package
 ```
 
 ---
@@ -157,33 +187,37 @@ Built with **MagicGUI** on a Qt backend (PyQt5/qtpy). The application runs a bac
 ### Running the GUI
 
 ```bash
-# From within scripts_and_notebooks/
+# From within scripts/
 conda activate omezarr
 python run_czi_converter_gui.py
 
 # From repo root
-conda run -n omezarr python scripts_and_notebooks/run_czi_converter_gui.py
+conda run -n omezarr python scripts/run_czi_converter_gui.py
 ```
 
 ---
 
 ## CLI Scripts
 
-### Standard OME-ZARR Conversion
-
-```bash
-python convert2omezarr.py --czifile ../data/CellDivision5D.czi --use_ngffzarr --scales [2,4] --overwrite
-```
-
-Options: `--czifile`, `--use_ngffzarr` / `--use_omezarr`, `--zarr`, `--scales`, `--overwrite`, `--validate`, `--scene`
+> **Note:** `convert2omezarr.py` (standard single-scene conversion) has been moved to `_archive/`. For standard conversions use `scripts/create_omezarr_example.py` directly or import from `czi_omezarr_utils`.
 
 ### HCS Plate Conversion
 
 ```bash
+# From within scripts/
 python convert2hcs_omezarr.py --czifile ../data/WP96_4Pos_B4-10_DAPI.czi --use_ngffzarr --plate "MyPlate" --overwrite
 ```
 
 Options: `--czifile`, `--use_ngffzarr` / `--use_omezarr`, `--zarr`, `--plate`, `--overwrite`, `--validate`
+
+### Example Script (Standard Conversion)
+
+```bash
+# From within scripts/
+python create_omezarr_example.py
+```
+
+Edit the configuration block inside the script to select backend, file path, scene ID, and HCS mode.
 
 ---
 
@@ -202,23 +236,26 @@ Options: `--czifile`, `--use_ngffzarr` / `--use_omezarr`, `--zarr`, `--plate`, `
 
 ## Image Analysis
 
-### `processing_tools.py` — `ArrayProcessor`
+### `czi_omezarr_utils.processing` — `ArrayProcessor` / `process_hcs_omezarr`
 
-Operates on 2D NumPy arrays. Chain operations via method calls:
+`ArrayProcessor` operates on 2D NumPy arrays. Chain operations via method calls:
 
 ```python
+from czi_omezarr_utils import ArrayProcessor
 proc = ArrayProcessor(array_2d)
 filtered = proc.apply_gaussian_filter(sigma=2)
 ```
 
 Methods: `apply_gaussian_filter`, `apply_median_filter`, `apply_triangle_threshold`, `apply_threshold`, `count_objects`
 
-### `plotting_utils.py` — `create_well_plate_heatmap`
+`process_hcs_omezarr` runs the full per-well analysis pipeline on an HCS-ZARR store.
+
+### `czi_omezarr_utils.plotting` — `create_well_plate_heatmap`
 
 Renders a seaborn heatmap from a `Dict[str, float]` with well keys in `"row/col"` format (e.g. `"B/4"`):
 
 ```python
-from plotting_utils import create_well_plate_heatmap
+from czi_omezarr_utils import create_well_plate_heatmap
 fig = create_well_plate_heatmap(results, num_rows=8, num_cols=12)
 ```
 
@@ -251,14 +288,14 @@ array = array.squeeze("S")  # → 5D xarray (T, C, Z, Y, X)
 ### Writing with ngff-zarr (recommended)
 
 ```python
-from ome_zarr_utils import write_omezarr_ngff
+from czi_omezarr_utils import write_omezarr_ngff
 write_omezarr_ngff(array, zarr_output_path, mdata, scale_factors=[2, 4], overwrite=True)
 ```
 
 ### Writing with ome-zarr-py
 
 ```python
-from ome_zarr_utils import write_omezarr
+from czi_omezarr_utils import write_omezarr
 write_omezarr(array, zarr_path=str(zarr_output_path), metadata=mdata, overwrite=True)
 ```
 

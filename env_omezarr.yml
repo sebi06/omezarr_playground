@@ -11,47 +11,32 @@ dependencies:
   - colormap
   - dask
   - dask-image
-  - docutils
-  - fsspec
   - ipyfilechooser
   - ipykernel
   - magicgui
-  - matplotlib
+  - matplotlib>=3.7.0
   - napari>=0.6.5
   - numpy
-  - ome-zarr
   - pandas
   - pip
-  - pooch
-  - pyqt=5
-  - pytest
-  - pytest-cov
-  - pytest-forked
-  - python-box[all]
-  - python-dateutil
-  - qasync
   - requests
-  - scikit-image
+  - scikit-image>=0.26.0
+  - seaborn>=0.13.2
   - setuptools
   - tqdm
   - validators
   - wheel
-  - xarray
+  - xarray>=2026.2.0
   - xarray[complete]
   - xmltodict
-  - zarr
   - altair
 
   - pip:
       - aicspylibczi>=3.3.1
       - bioio
       - bioio-czi
-      - bioio-imageio
-      - bioio-ome-tiff
       - bioio-ome-zarr
-      - bioio-conversion
-      - cztile
-      - czitools
+      - czitools>=0.17.0
       - df2tables
       - loguru
       - napari-brightness-contrast
@@ -61,13 +46,9 @@ dependencies:
       - napari-ome-zarr
       - napari-plugin-search
       - napari-skimage-regionprops
-      - ngff-zarr
-      - ngff-zarr[dask-image]
-      - ngff-zarr[validate]
-      - pylibCZIrw
+      - ngff-zarr[dask-image,validate]>=0.34.0
       - marimo
-      - pip-system-certs
-      - pytestarch
+      - ome-zarr>=0.16.0
       
 
 # Create an environment - use conda or mamba
