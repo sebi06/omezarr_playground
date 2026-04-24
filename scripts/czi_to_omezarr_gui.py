@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 #################################################################
 # File        : czi_to_omezarr_gui.py
 # Author      : sebi06
@@ -481,7 +479,7 @@ def on_read_metadata_clicked() -> None:
 📚 Z-slices: {size_z}
 ⏱️ Time points: {size_t}
 
-Ready to convert!
+Ready to convert
 """
     info_display.value = info_text
 
