@@ -13,9 +13,10 @@ logging.basicConfig(
 if __name__ == "__main__":
 
     # adapt the path to your needs
+    hcs_omezarr_path = r"F:\GitHub\omezarr_playground\data\WP96_4Pos_B4-10_DAPI_ngff_plate.ome.zarr"
     # hcs_omezarr_path = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI_HCSplate.ome.zarr"
     # hcs_omezarr_path = r"F:\Github\omezarr_playground\data\WP96_4Pos_B4-10_DAPI_HCSplate.ozx"
-    hcs_omezarr_path = r"F:\Testdata_Zeiss\OME_ZARR_Testfiles\384well_DAPI_sm_HCSplate.ome.zarr"
+    # hcs_omezarr_path = r"F:\Testdata_Zeiss\OME_ZARR_Testfiles\384well_DAPI_sm_HCSplate.ome.zarr"
 
     # Index of the channel to analyze
     channel2analyze = 0

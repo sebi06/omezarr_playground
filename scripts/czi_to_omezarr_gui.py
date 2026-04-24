@@ -337,7 +337,7 @@ def perform_conversion(
         "visible": False,
     },
     show_napari={
-        "label": "Show in napari After Conversion",
+        "label": "Show in napari After Conversion (Experimental !!!)",
         "tooltip": "Automatically open the result in napari viewer",
     },
 )

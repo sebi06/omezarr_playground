@@ -40,6 +40,37 @@ from .display import get_fieldimage, create_channel_list
 logger = logging.getLogger(__name__)
 
 
+def _to_ome_zarr_image(array: Union[np.ndarray, xr.DataArray, da.Array]) -> Union[np.ndarray, da.Array]:
+    """Return an array type accepted by ome-zarr writer functions."""
+    if isinstance(array, xr.DataArray):
+        data = array.data
+        if isinstance(data, (np.ndarray, da.Array)):
+            return data
+        return np.asarray(data)
+    return array
+
+
+def _ensure_plate_version_metadata(zarr_path: Union[str, os.PathLike, Path], version: str) -> None:
+    """Ensure nested ome.plate.version exists in root metadata."""
+    parsed = parse_url(Path(zarr_path), mode="r+")
+    assert parsed is not None, f"Failed to open zarr store at {zarr_path}"
+
+    root = zarr.group(store=parsed.store)
+    attrs = root.attrs.asdict()
+    ome_attrs = attrs.get("ome")
+    if not isinstance(ome_attrs, dict):
+        return
+
+    plate_attrs = ome_attrs.get("plate")
+    if not isinstance(plate_attrs, dict) or plate_attrs.get("version") is not None:
+        return
+
+    plate_attrs["version"] = version
+    ome_attrs["plate"] = plate_attrs
+    attrs["ome"] = ome_attrs
+    root.attrs.update(attrs)
+
+
 # ---------------------------------------------------------------------------
 # ome-zarr-py HCS conversion
 # ---------------------------------------------------------------------------
@@ -121,10 +152,12 @@ def convert_czi2hcs_omezarr(
             current_scene_index = mdata.sample.well_scene_indices[current_well_id][fi]
             logger.info(f"Writing Well: {wp}, Field: {field}, Scene Index: {current_scene_index}")
 
+            image = array6d[current_scene_index, ...]
+
             write_image(
-                image=array6d[current_scene_index, ...],  # type: ignore[arg-type]
+                image=_to_ome_zarr_image(image),
                 group=image_group,
-                axes="".join(str(d).lower() for d in array6d.dims[1:]),
+                axes="".join(str(d).lower() for d in image.dims),
                 storage_options=dict(chunks=(1, 1, 1, array6d.sizes["Y"], array6d.sizes["X"])),
             )
 
@@ -283,6 +316,8 @@ def convert_czi2hcs_ngff(
                     field_index=fi,
                 )
 
+    _ensure_plate_version_metadata(write_path, version)
+
     if _win_ozx_workaround:
         # All file handles are now closed; safe to zip on Windows
         from .hcs import convert_hcs_omezarr2ozx
@@ -363,7 +398,7 @@ def write_omezarr(
     root = zarr.group(store=store, overwrite=overwrite)
 
     ome_zarr.writer.write_image(
-        image=array5d,  # type: ignore[arg-type]
+        image=_to_ome_zarr_image(array5d),
         group=root,
         axes="".join(str(d).lower() for d in array5d.dims),
         storage_options=dict(chunks=(1, 1, 1, array5d.sizes["Y"], array5d.sizes["X"])),

@@ -47,8 +47,8 @@ def main() -> None:
     write_ozx_directly: bool = False  # keep False on Windows; True only works reliably on Linux/macOS
 
     # Backend library selection: OME_ZARR (ome-zarr-py) or NGFF_ZARR (ngff-zarr)
-    # ome_package = omezarr_package.OME_ZARR
-    ome_package = omezarr_package.NGFF_ZARR
+    ome_package = omezarr_package.OME_ZARR
+    # ome_package = omezarr_package.NGFF_ZARR
 
     # Scene ID for non-HCS format (ignored if write_hcs=True)
     scene_id: int = 0
