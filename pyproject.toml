@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omezarr-playground"
+version = "0.1.0"
+description = "Scripts and notebooks for working with OME-Zarr format"
+
+[tool.setuptools]
+packages = []
