@@ -30,12 +30,15 @@ dependencies:
   - xarray[complete]
   - xmltodict
   - altair
+  - pytest
 
   - pip:
       - aicspylibczi>=3.3.1
       - bioio
       - bioio-czi
       - bioio-ome-zarr
+      - ngio
+      - bioio-conversion
       - czitools>=0.17.0
       - df2tables
       - loguru
@@ -49,7 +52,8 @@ dependencies:
       - ngff-zarr[dask-image,validate]>=0.34.0
       - marimo
       - ome-zarr>=0.16.0
-      
+      - ome-zarr-models
+
 
 # Create an environment - use conda or mamba
 # conda env create --file env_omezarr.yml
