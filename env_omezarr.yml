@@ -53,7 +53,7 @@ dependencies:
       - marimo
       - ome-zarr>=0.16.0
       - ome-zarr-models
-
+      - ome-writers
 
 # Create an environment - use conda or mamba
 # conda env create --file env_omezarr.yml
