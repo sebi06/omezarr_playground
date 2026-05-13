@@ -27,7 +27,6 @@ dependencies:
   - validators
   - wheel
   - xarray>=2026.2.0
-  - xarray[complete]
   - xmltodict
   - altair
   - pytest
@@ -37,7 +36,6 @@ dependencies:
       - bioio
       - bioio-czi
       - bioio-ome-zarr
-      - ngio
       - bioio-conversion
       - czitools>=0.17.0
       - df2tables
