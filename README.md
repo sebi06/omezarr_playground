@@ -35,10 +35,17 @@ conda activate base
 conda install jupyterlab jupyter_server nb_conda_kernels
 ```
 
-To run the notebooks locally it is recommended to create a fresh conda environment. Please feel free to use the provided [YML file](omezarr_env.yml) (at your own risk) to create such an environment:
+To run the notebooks locally it is recommended to create a fresh conda environment. Please feel free to use the provided [YML file](env_omezarr.yml) (at your own risk) to create such an environment:
 
 ```cmd
 conda env create --file env_omezarr.yml
+```
+
+Alternatively, a [pixi.toml](pixi.toml) file is provided for use with the [pixi](https://prefix.dev/docs/pixi/overview) package manager:
+
+```cmd
+pixi install
+pixi run python scripts/create_omezarr_example.py
 ```
 
 ## Utilities: czi_omezarr_utils
@@ -213,7 +220,7 @@ Convert CZI files to OME-ZARR HCS (High Content Screening) format
 options:
   -h, --help         show this help message and exit
   --czifile CZIFILE  Path to the input CZI file to convert (required)
-  --use_ngffzarr     Use NGFF-ZARR format to create the HCS Plate Layout (recommended)
+  --use_ngffzarr     Use NGFF-ZARR format to create the HCS Plate Layout
   --use_omezarr      Use OME-ZARR format to create the HCS Plate Layout
   --zarr ZARR        Output path for the OME-ZARR file (default: <czifile>_ngff_plate.ome.zarr)
   --plate PLATE      Name of the well plate for metadata (default: 'Automated Plate')
@@ -237,11 +244,22 @@ Examples:
     python convert2hcs_omezarr.py --czifile WP96_plate.czi --overwrite
 
 Notes:
-    - If no format is specified, NGFF-ZARR format is used by default (recommended)
+    - If no format is specified, NGFF-ZARR format is used by default
     - The output format follows the OME-NGFF specification for HCS data
     - Data is organized in a plate/well/field hierarchy
     - All conversion logs are saved to '<input_filename>_hcs_omezarr.log'
 ```
+
+### Validate OME-ZARR output: validate_omezarr.py
+
+After conversion, the resulting OME-ZARR files can be validated against the OME-NGFF specification using `scripts/validate_omezarr.py`:
+
+```python
+from scripts.validate_omezarr import validate_ome_zarr
+validate_ome_zarr("path/to/output.ome.zarr")
+```
+
+Both standard image and HCS plate layouts are supported.
 
 ### CZI - Normal Conversion Example Notebook
 

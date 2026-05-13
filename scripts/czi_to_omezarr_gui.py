@@ -308,7 +308,7 @@ def perform_conversion(
     },
     package_choice={
         "label": "OME-ZARR Package",
-        "choices": [("ngff-zarr (Recommended)", omezarr_package.NGFF_ZARR), ("ome-zarr-py", omezarr_package.OME_ZARR)],
+        "choices": [("ngff-zarr", omezarr_package.NGFF_ZARR), ("ome-zarr-py", omezarr_package.OME_ZARR)],
         "tooltip": "Choose the backend library for OME-ZARR writing",
     },
     write_hcs={

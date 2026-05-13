@@ -9,7 +9,7 @@ A graphical interface built with **MagicGUI** (Qt/PyQt5 backend) for converting 
 - Multiple conversion modes:
   - Standard OME-ZARR (single scene)
   - HCS (High Content Screening) multi-well plate layout
-- Two backend libraries: **ngff-zarr** (recommended) and **ome-zarr-py**
+- Two backend libraries: **ngff-zarr** and **ome-zarr-py**
 - Single-file OME-ZARR archive (`.ozx`) output — ngff-zarr only
 - Scene selector for multi-scene files (non-HCS mode)
 - Live conversion log viewer updated in real time
@@ -64,7 +64,7 @@ napari.run()
 | Widget                                | Type            | Description                                                                                |
 | ------------------------------------- | --------------- | ------------------------------------------------------------------------------------------ |
 | **CZI File**                          | File browser    | Input `.czi` file; filtered to `*.czi`                                                     |
-| **OME-ZARR Package**                  | Dropdown        | Backend: *ngff-zarr (Recommended)* or *ome-zarr-py*                                        |
+| **OME-ZARR Package**                  | Dropdown        | Backend: *ngff-zarr* or *ome-zarr-py*                                                      |
 | **Write HCS Layout**                  | Checkbox        | Enable HCS multi-well plate output format                                                  |
 | **Use Single-File OME-ZARR (.ozx)**   | Checkbox        | Master toggle for `.ozx` archive output (ngff-zarr only)                                   |
 | **Create OZX archive during writing** | Checkbox        | Write directly into a zip archive while converting (disabled in HCS mode — see note below) |
@@ -184,7 +184,7 @@ Conversion runs in a **daemon thread** to avoid blocking the Qt event loop:
 
 ## Conversion Backends
 
-### ngff-zarr (Recommended)
+### ngff-zarr
 
 - Writes OME-NGFF v0.5
 - Multi-resolution pyramid via `write_omezarr_ngff()` with configurable `scale_factors`

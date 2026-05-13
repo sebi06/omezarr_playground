@@ -5,7 +5,7 @@
 This repository is a playground for converting Carl Zeiss Image (CZI) files to OME-ZARR format. It supports:
 
 - Standard OME-ZARR and HCS (High Content Screening / multi-well plate) layouts
-- Two backend libraries: **ngff-zarr** (recommended) and **ome-zarr-py**
+- Two backend libraries: **ngff-zarr** and **ome-zarr-py**
 - Single-file OME-ZARR archives (`.ozx` format, ngff-zarr only)
 - A MagicGUI desktop application for interactive conversion
 - CLI scripts for batch/automated conversion
@@ -36,12 +36,18 @@ omezarr_playground/
 │   ├── run_czi_converter_gui.py    # Launcher for the GUI application
 │   ├── convert2hcs_omezarr.py      # CLI: HCS plate conversion
 │   ├── create_omezarr_example.py   # Standalone example script
-│   └── process_hcsplate_example.py # HCS plate processing example
+│   ├── process_hcsplate_example.py # HCS plate processing example
+│   └── validate_omezarr.py         # Validate OME-ZARR output against OME-NGFF spec
 ├── notebooks/                      # Jupyter and Marimo notebooks
 │   ├── create_omezarr_marimo.py    # Marimo notebook for conversion
 │   ├── visualize_omezarr_heatmap_marimo.py  # Marimo notebook for heatmaps
-│   └── *.ipynb                     # Jupyter notebooks for exploration
+│   ├── convert_czi2_omezarr.ipynb  # Jupyter: standard CZI → OME-ZARR conversion
+│   ├── convert_czi2hcs_omezarr.ipynb # Jupyter: CZI → HCS OME-ZARR conversion
+│   ├── omezarr_from_czi_5d.ipynb   # Jupyter: 5D CZI exploration
+│   ├── process_omezarr_HCS_plate.ipynb # Jupyter: HCS plate analysis
+│   └── read_czi_from_dropbox.ipynb # Jupyter: read CZI from Dropbox
 ├── env_omezarr.yml                 # Conda environment definition
+├── pixi.toml                       # Pixi package manager environment definition
 ├── pyproject.toml                  # Package metadata and build config
 ├── README.md
 └── _archive/                       # Older/reference scripts (do not modify)
@@ -57,6 +63,8 @@ omezarr_playground/
 
 ### Environment Management
 
+**Conda:**
+
 ```bash
 # Create
 conda env create --file env_omezarr.yml
@@ -71,11 +79,21 @@ conda activate omezarr
 conda remove --name omezarr --all
 ```
 
+**Pixi** (alternative, uses `pixi.toml`):
+
+```bash
+# Install all dependencies
+pixi install
+
+# Run a script inside the pixi environment
+pixi run python scripts/create_omezarr_example.py
+```
+
 ### Key Dependencies
 
 | Package | Role |
 |---|---|
-| `ngff-zarr` (≤0.28.x recommended) | Primary OME-ZARR write backend |
+| `ngff-zarr` | Primary OME-ZARR write backend |
 | `ome-zarr` | Secondary OME-ZARR write backend |
 | `czitools` | CZI metadata parsing and array reading |
 | `pylibCZIrw` | Low-level CZI reading via libCZIrw |
@@ -89,7 +107,7 @@ conda remove --name omezarr --all
 | `scikit-image` | Image processing (filtering, segmentation, morphology) |
 | `marimo` | Reactive notebook framework |
 
-> **Note:** `ngff-zarr` is pinned to `0.34.0` in both `pyproject.toml` and `env_omezarr.yml`. Earlier releases (notably `0.29.0`) had a known bug where `from_ngff_zarr.py` contained null bytes; this was fixed in subsequent releases.
+> **Note:** `ngff-zarr` is pinned to `>=0.34.0` in both `pyproject.toml` and `env_omezarr.yml`. Earlier releases (notably `0.29.0`) had a known bug where `from_ngff_zarr.py` contained null bytes; this was fixed in `0.34.0` and later.
 
 ---
 
@@ -102,7 +120,7 @@ This is the installable utility package. All conversion functions should be impo
 ```python
 from czi_omezarr_utils import omezarr_package
 
-omezarr_package.NGFF_ZARR  # ngff-zarr backend (recommended)
+omezarr_package.NGFF_ZARR  # ngff-zarr backend
 omezarr_package.OME_ZARR   # ome-zarr-py backend
 ```
 
@@ -285,7 +303,7 @@ array, mdata = read_tools.read_6darray(filepath, planes={"S": (0, 0)}, use_xarra
 array = array.squeeze("S")  # → 5D xarray (T, C, Z, Y, X)
 ```
 
-### Writing with ngff-zarr (recommended)
+### Writing with ngff-zarr
 
 ```python
 from czi_omezarr_utils import write_omezarr_ngff
@@ -320,7 +338,7 @@ napari.run()
 
 ## Known Issues & Notes
 
-- **`ngff-zarr 0.29.0` is broken** — `from_ngff_zarr.py` contains null bytes in the PyPI wheel. Pin to `ngff-zarr==0.28.1`.
+- **`ngff-zarr 0.29.0` was broken** — `from_ngff_zarr.py` contained null bytes in the PyPI wheel. This was fixed in `0.34.0`; use `ngff-zarr>=0.34.0` (already pinned in `pyproject.toml` and `env_omezarr.yml`).
 - `zarr` v3 is installed; some older ome-zarr-py patterns expecting zarr v2 store APIs may need adjustment (`parse_url`, `zarr.open_group` kwargs differ slightly).
 - The `~ygments-*.dist-info` ghost directory can appear in the conda env if a `pip install` is interrupted mid-run. Remove it with `Remove-Item -LiteralPath` (PowerShell) or `rm -rf` (bash).
 - The GUI uses **PyQt5** via `qtpy`. Do not mix Qt bindings — keep `QT_API=pyqt5` consistent.

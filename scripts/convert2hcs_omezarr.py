@@ -19,7 +19,6 @@ from pathlib import Path
 from czi_omezarr_utils import convert_czi2hcs_ngff, convert_czi2hcs_omezarr, setup_logging
 import ngff_zarr as nz
 
-
 if __name__ == "__main__":
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
@@ -43,7 +42,7 @@ Examples:
     python convert2hcs_omezarr.py --czifile WP96_plate.czi --overwrite
 
 Notes:
-    - If no format is specified, NGFF-ZARR format is used by default (recommended)
+    - If no format is specified, NGFF-ZARR format is used by default (
     - The output format follows the OME-NGFF specification for HCS data
     - Data is organized in a plate/well/field hierarchy
     - All conversion logs are saved to '<input_filename>_hcs_omezarr.log'
@@ -63,7 +62,7 @@ Notes:
     format_group.add_argument(
         "--use_ngffzarr",
         action="store_true",
-        help="Use NGFF-ZARR format to create the HCS Plate Layout (recommended)",
+        help="Use NGFF-ZARR format to create the HCS Plate Layout",
     )
     format_group.add_argument(
         "--use_omezarr",

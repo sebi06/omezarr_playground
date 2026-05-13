@@ -27,7 +27,7 @@ if __name__ == "__main__":
     print("3. Configure conversion options:")
     print("   - Single-File .ozx format (optional)")
     print("   - HCS Layout for multi-well plates")
-    print("   - Package choice (ngff-zarr recommended)")
+    print("   - Package choice (ngff-zarr or ome-zarr-py)")
     print("   - Scene ID (if multiple scenes and not HCS)")
     print("4. Click 'Convert to OME-ZARR'")
     print("\nClose the window to exit.")
