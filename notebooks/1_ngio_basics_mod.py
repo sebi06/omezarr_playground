@@ -216,7 +216,37 @@ def _(Path, mo):
 
     ome_zarr_container = ngio.open_ome_zarr_container(image_path)
     image = ome_zarr_container.get_image()
-    # ome_zarr_container.get_table("FOV_ROI_table").lazy_frame
+
+    # Write an FOV_ROI_table if one doesn't already exist.
+    # The CardiomyocyteTinyMip reference dataset ships with this table pre-baked
+    # (written by Fractal during conversion). Our CZI-derived plate does not, so
+    # we create a single ROI covering the full image for each well/position here.
+    from ngio.tables import RoiTable as _RoiTable
+
+    if "FOV_ROI_table" not in ome_zarr_container.list_tables():
+        _shape = image.shape
+        _axes = image.axes
+        _y_len = float(_shape[_axes.index("y")])
+        _x_len = float(_shape[_axes.index("x")])
+        _z_len = float(_shape[_axes.index("z")]) if "z" in _axes else 1.0
+        _fov_roi_table = _RoiTable(
+            rois=[
+                ngio.Roi(
+                    name="FOV_0",
+                    slices=[
+                        ngio.RoiSlice(axis_name="x", start=0.0, length=_x_len),
+                        ngio.RoiSlice(axis_name="y", start=0.0, length=_y_len),
+                        ngio.RoiSlice(axis_name="z", start=0.0, length=_z_len),
+                    ],
+                    space="pixel",
+                ).to_world(pixel_size=image.pixel_size)
+            ]
+        )
+        ome_zarr_container.add_table(
+            name="FOV_ROI_table",
+            table=_fov_roi_table,
+            overwrite=True,
+        )
 
     # show actual Path
     mo.md(f"""Path: {hcs_path}""")
