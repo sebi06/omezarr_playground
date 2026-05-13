@@ -1,0 +1,18 @@
+{
+  "attributes": {
+    "backend": "csv",
+    "index_key": "label",
+    "index_type": "int",
+    "table_version": "1",
+    "type": "feature_table",
+    "region": {
+      "path": "../labels/basic_segmentation"
+    },
+    "instance_key": "label",
+    "categorical_columns": [],
+    "measurement_columns": [],
+    "metadata_columns": []
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

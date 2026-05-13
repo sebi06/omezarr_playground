@@ -1,0 +1,15 @@
+{
+  "attributes": {
+    "backend": "csv",
+    "index_key": "label",
+    "index_type": "int",
+    "table_version": "1",
+    "type": "masking_roi_table",
+    "region": {
+      "path": "../labels/basic_segmentation"
+    },
+    "instance_key": "label"
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

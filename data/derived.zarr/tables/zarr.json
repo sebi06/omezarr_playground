@@ -1,0 +1,10 @@
+{
+  "attributes": {
+    "tables": [
+      "basic_segmentation_ROI_table",
+      "basic_segmentation_features"
+    ]
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

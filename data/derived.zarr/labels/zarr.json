@@ -1,0 +1,12 @@
+{
+  "attributes": {
+    "ome": {
+      "version": "0.5",
+      "labels": [
+        "basic_segmentation"
+      ]
+    }
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

@@ -1,0 +1,100 @@
+{
+  "attributes": {
+    "ome": {
+      "version": "0.5",
+      "image-label": {
+        "source": {
+          "image": "../../"
+        },
+        "version": "0.5"
+      },
+      "multiscales": [
+        {
+          "axes": [
+            {
+              "name": "t",
+              "type": "time",
+              "unit": "second"
+            },
+            {
+              "name": "z",
+              "type": "space",
+              "unit": "micrometer"
+            },
+            {
+              "name": "y",
+              "type": "space",
+              "unit": "micrometer"
+            },
+            {
+              "name": "x",
+              "type": "space",
+              "unit": "micrometer"
+            }
+          ],
+          "datasets": [
+            {
+              "path": "scale0/WP96_4Pos_B4-10_DAPI.czi",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "scale": [
+                    1.0,
+                    1.0,
+                    0.2,
+                    0.2
+                  ]
+                }
+              ]
+            },
+            {
+              "path": "scale1/WP96_4Pos_B4-10_DAPI.czi",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "scale": [
+                    1.0,
+                    1.0,
+                    0.4,
+                    0.4
+                  ]
+                }
+              ]
+            },
+            {
+              "path": "scale2/WP96_4Pos_B4-10_DAPI.czi",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "scale": [
+                    1.0,
+                    1.0,
+                    0.8,
+                    0.8
+                  ]
+                }
+              ]
+            },
+            {
+              "path": "scale3/WP96_4Pos_B4-10_DAPI.czi",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.6,
+                    1.6
+                  ]
+                }
+              ]
+            }
+          ],
+          "name": "basic_segmentation"
+        }
+      ]
+    }
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}
