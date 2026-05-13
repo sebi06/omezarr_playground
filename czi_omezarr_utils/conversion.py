@@ -80,6 +80,7 @@ def convert_czi2hcs_omezarr(
     czi_filepath: Union[str, os.PathLike, Path],
     overwrite: bool = True,
     log_file_path: Optional[Union[str, os.PathLike, Path]] = None,
+    pad_columns: bool = True,
 ) -> Path:
     """Convert a CZI file to OME-ZARR HCS format using the ome-zarr-py backend.
 
@@ -87,6 +88,8 @@ def convert_czi2hcs_omezarr(
         czi_filepath: Path to the input CZI file.
         overwrite: Remove existing output directory if True.
         log_file_path: Path to log file. Defaults to ``<stem>_hcs_omezarr.log``.
+        pad_columns: Zero-pad column numbers in well paths (e.g. ``"04"`` instead of
+            ``"4"``). Default is ``True``.
 
     Returns:
         Path to the output OME-ZARR HCS directory (``<stem>_HCSplate.ome.zarr``).
@@ -123,7 +126,7 @@ def convert_czi2hcs_omezarr(
     assert mdata.sample is not None, "CZI metadata is missing sample/plate information"
     assert isinstance(array6d, xr.DataArray), "Expected xarray DataArray from read_6darray with use_xarray=True"
 
-    row_names, col_names, well_paths = extract_well_coordinates(mdata.sample.well_counter)
+    row_names, col_names, well_paths = extract_well_coordinates(mdata.sample.well_counter, pad_columns=pad_columns)
     field_paths = [str(i) for i in range(mdata.sample.well_counter[mdata.sample.well_array_names[0]])]
 
     parsed = parse_url(zarr_output_path, mode="w")
@@ -146,7 +149,8 @@ def convert_czi2hcs_omezarr(
         well_group = root.require_group(row).require_group(col)
         write_well_metadata(well_group, field_paths)  # type: ignore[arg-type]
 
-        current_well_id = wp.replace("/", "")
+        # Strip leading zeros to match the CZI well_scene_indices key (e.g. "B4", not "B04")
+        current_well_id = f"{row}{int(col)}"
         for fi, field in enumerate(field_paths):
             image_group = well_group.require_group(str(field))
             current_scene_index = mdata.sample.well_scene_indices[current_well_id][fi]
@@ -182,6 +186,7 @@ def convert_czi2hcs_ngff(
     write_ozx_directly: bool = False,
     version: str = "0.5",
     output_dir: Optional[Union[str, os.PathLike, Path]] = None,
+    pad_columns: bool = True,
 ) -> Path:
     """Convert a CZI file to OME-ZARR HCS format using the ngff-zarr backend.
 
@@ -195,6 +200,8 @@ def convert_czi2hcs_ngff(
         version: NGFF version string (default: "0.5").
         output_dir: Optional directory for the output file. Defaults to the CZI file's
             parent directory.
+        pad_columns: Zero-pad column numbers in well paths (e.g. ``"04"`` instead of
+            ``"4"``). Default is ``True``.
 
     Returns:
         Path to the output OME-ZARR HCS directory (``<stem>_ngff_plate.ome.zarr``) or
@@ -247,7 +254,7 @@ def convert_czi2hcs_ngff(
     assert mdata.sample is not None, "CZI metadata is missing sample/plate information"
     assert isinstance(array6d, xr.DataArray), "Expected xarray DataArray from read_6darray with use_xarray=True"
 
-    row_names, col_names, well_paths = extract_well_coordinates(mdata.sample.well_counter)
+    row_names, col_names, well_paths = extract_well_coordinates(mdata.sample.well_counter, pad_columns=pad_columns)
     field_paths = [str(i) for i in range(mdata.sample.well_counter[mdata.sample.well_array_names[0]])]
 
     columns = [PlateColumn(name=str(col)) for col in sorted(col_names, key=int)]
@@ -303,7 +310,8 @@ def convert_czi2hcs_ngff(
     with HCSPlateWriter(str(write_path), plate_metadata) as writer:
         for well in wells:
             row_name, col_name = well.path.split("/")
-            current_well_id = well.path.replace("/", "")
+            # Strip leading zeros to match the CZI well_scene_indices key (e.g. "B4", not "B04")
+            current_well_id = f"{row_name}{int(col_name)}"
             logger.info(f"Creating WellID: {current_well_id} Row: {row_name}, Column: {col_name}")
             for fi, field in enumerate(field_paths):
                 current_scene_index = mdata.sample.well_scene_indices[current_well_id][fi]

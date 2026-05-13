@@ -9,7 +9,7 @@ platforms = ["win-64", "linux-64"]
 python = "3.13.*"
 altair = "*"
 colormap = "*"
-dask = "*"
+dask = ">=2024.1,<2025.11"
 dask-image = "*"
 fsspec = "*"
 ipyfilechooser = "*"
@@ -18,7 +18,7 @@ magicgui = "*"
 matplotlib = ">=3.7.0"
 napari = ">=0.6.5"
 numpy = "*"
-pandas = "*"
+pandas = "<3"
 pytest = "*"
 requests = "*"
 scikit-image = ">=0.26.0"
@@ -29,7 +29,6 @@ validators = "*"
 wheel = "*"
 xarray = ">=2026.2.0"
 xmltodict = "*"
-# wordcloud has no cp313 wheel on PyPI — install from conda-forge
 wordcloud = "*"
 ome-zarr-models = ">=1.7,<2"
 
@@ -65,6 +64,7 @@ napari-skimage-regionprops = "*"
 df2tables = "*"
 loguru = "*"
 marimo = "*"
+ngio = ">=0.5.9"
 
 [tasks]
 # Launch the MagicGUI converter application

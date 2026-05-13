@@ -47,8 +47,10 @@ def main() -> None:
     write_ozx_directly: bool = False  # keep False on Windows; True only works reliably on Linux/macOS
 
     # Backend library selection: OME_ZARR (ome-zarr-py) or NGFF_ZARR (ngff-zarr)
-    ome_package = omezarr_package.OME_ZARR
-    # ome_package = omezarr_package.NGFF_ZARR
+    # NOTE: OME_ZARR (ome-zarr-py) only writes OME-NGFF spec v0.4.
+    #       Use NGFF_ZARR to get spec v0.5 + zarr v3 store format.
+    # ome_package = omezarr_package.OME_ZARR
+    ome_package = omezarr_package.NGFF_ZARR
 
     # Scene ID for non-HCS format (ignored if write_hcs=True)
     scene_id: int = 0
@@ -90,6 +92,7 @@ def main() -> None:
                 overwrite=True,
                 write_ozx_directly=write_ozx_directly,
                 output_dir=None,
+                version="0.5",
             )
         else:
             raise ValueError(f"Unsupported ome_package: {ome_package}")
@@ -104,11 +107,13 @@ def main() -> None:
             else:
                 logger.warning("convert_hcs_omezarr2ozx returned None; keeping original OME-ZARR path")
 
-        # Validate the HCS-ZARR file against OME-NGFF specification
-        # This ensures proper metadata structure for multi-well plate data
-        logger.info("Validating created HCS-ZARR file against schema...")
-        hcs_plate = nz.from_hcs_zarr(zarr_output_path, validate=True)
-        logger.info("Validation successful - HCS metadata conforms to specification.")
+        # Validate the HCS-ZARR file against OME-NGFF v0.5 specification
+        # nz.from_hcs_zarr validates against the NGFF v0.5 schema; only applicable
+        # to NGFF_ZARR output (ome-zarr-py writes v0.4 and will not pass v0.5 validation).
+        if ome_package == omezarr_package.NGFF_ZARR:
+            logger.info("Validating created HCS-ZARR file against OME-NGFF v0.5 schema...")
+            hcs_plate = nz.from_hcs_zarr(zarr_output_path, validate=True)
+            logger.info("Validation successful - HCS metadata conforms to OME-NGFF v0.5 specification.")
 
     # ========== Standard OME-ZARR Conversion (Non-HCS) ==========
     elif not write_hcs:
@@ -142,7 +147,9 @@ def main() -> None:
 
             # Write OME-ZARR using ngff-zarr backend with multi-resolution pyramid
             # scale_factors=[2, 4] creates 3 resolution levels (1x, 2x, 4x downsampled)
-            _ = write_omezarr_ngff(array, zarr_output_path, mdata, scale_factors=[2, 4], overwrite=True)
+            # version="0.5" explicitly selects OME-NGFF spec v0.5; zarr v3 store format
+            # is used automatically because zarr >= 3 is installed.
+            _ = write_omezarr_ngff(array, zarr_output_path, mdata, scale_factors=[2, 4], overwrite=True, version="0.5")
             logger.info(f"Written OME-ZARR using ngff-zarr: {zarr_output_path}")
         else:
             raise ValueError(f"Unsupported ome_package: {ome_package}")

@@ -30,6 +30,7 @@ omezarr_playground/
 │   ├── display.py                  # Field image and channel display helpers
 │   ├── processing.py               # Image analysis (ArrayProcessor, process_hcs_omezarr)
 │   ├── plotting.py                 # Heatmap/visualization utilities
+│   ├── validation.py               # validate_ome_zarr — OME-NGFF v0.5 schema validation
 │   └── logging_utils.py            # setup_logging, omezarr_package enum
 ├── scripts/                        # Runnable CLI scripts and GUI launcher
 │   ├── czi_to_omezarr_gui.py       # MagicGUI application (main GUI module)
@@ -37,7 +38,11 @@ omezarr_playground/
 │   ├── convert2hcs_omezarr.py      # CLI: HCS plate conversion
 │   ├── create_omezarr_example.py   # Standalone example script
 │   ├── process_hcsplate_example.py # HCS plate processing example
-│   └── validate_omezarr.py         # Validate OME-ZARR output against OME-NGFF spec
+│   ├── use_ngio.py                 # ngio HCS plate access example
+│   └── validate_omezarr.py         # CLI wrapper for validate_ome_zarr
+├── .vscode/
+│   ├── settings.json               # Python interpreter → pixi default env
+│   └── launch.json                 # Debugpy launch configs for pixi env
 ├── notebooks/                      # Jupyter and Marimo notebooks
 │   ├── create_omezarr_marimo.py    # Marimo notebook for conversion
 │   ├── visualize_omezarr_heatmap_marimo.py  # Marimo notebook for heatmaps
@@ -99,8 +104,9 @@ pixi run python scripts/create_omezarr_example.py
 | `pylibCZIrw` | Low-level CZI reading via libCZIrw |
 | `aicspylibczi` | Alternative CZI reader |
 | `zarr` | Zarr v3 storage backend |
-| `dask` | Lazy parallel array computation |
+| `dask` | Lazy parallel array computation (pinned `>=2024.1,<2025.11` in pixi.toml for ngio compatibility) |
 | `xarray` | Labelled N-D arrays (dimension names: STCZYX) |
+| `ngio` | High-level OME-ZARR HCS plate reader (`>=0.5.9`) |
 | `magicgui` | Qt-based GUI widget framework |
 | `napari` | Interactive image viewer |
 | `napari-ome-zarr` | napari plugin to open OME-ZARR files |
@@ -129,12 +135,13 @@ omezarr_package.OME_ZARR   # ome-zarr-py backend
 | Function | Module | Description |
 |---|---|---|
 | `setup_logging(log_file_path, force_reconfigure)` | `logging_utils` | Configure root logger with file + console handlers |
-| `write_omezarr(array, zarr_path, metadata, overwrite)` | `conversion` | Write 5D xarray (TCZYX) using ome-zarr-py |
-| `write_omezarr_ngff(array, zarr_path, metadata, scale_factors, overwrite)` | `conversion` | Write 5D xarray using ngff-zarr with multi-resolution pyramid |
-| `convert_czi2hcs_omezarr(czi_filepath, overwrite, log_file_path)` | `conversion` | Full CZI→HCS-ZARR pipeline using ome-zarr-py |
-| `convert_czi2hcs_ngff(czi_filepath, overwrite, write_ozx_directly, log_file_path)` | `conversion` | Full CZI→HCS-ZARR pipeline using ngff-zarr |
+| `write_omezarr(array, zarr_path, metadata, overwrite)` | `conversion` | Write 5D xarray (TCZYX) using ome-zarr-py (OME-NGFF v0.4) |
+| `write_omezarr_ngff(array, zarr_path, metadata, scale_factors, overwrite, version)` | `conversion` | Write 5D xarray using ngff-zarr with multi-resolution pyramid (default `version="0.5"`) |
+| `convert_czi2hcs_omezarr(czi_filepath, overwrite, log_file_path, pad_columns)` | `conversion` | Full CZI→HCS-ZARR pipeline using ome-zarr-py |
+| `convert_czi2hcs_ngff(czi_filepath, overwrite, write_ozx_directly, log_file_path, version, pad_columns)` | `conversion` | Full CZI→HCS-ZARR pipeline using ngff-zarr (default `version="0.5"`) |
+| `validate_ome_zarr(path)` | `validation` | Validate a local OME-ZARR file against OME-NGFF v0.5; returns `True`/`False` |
 | `convert_hcs_omezarr2ozx(zarr_path, remove_omezarr)` | `hcs` | Convert existing HCS-ZARR directory to `.ozx` zip archive |
-| `extract_well_coordinates(well_counter)` | `hcs` | Parse well IDs (e.g. `"B4"`) into row/col/path lists |
+| `extract_well_coordinates(well_counter, pad_columns)` | `hcs` | Parse well IDs into row/col/path lists; `pad_columns=True` (default) zero-pads columns (e.g. `"04"`) |
 | `PlateConfiguration` | `hcs` | Dataclass for standard microplate format (rows, columns, name) |
 | `PlateType` | `hcs` | Enum of standard plate formats (6, 24, 48, 96, 384, 1536-well) |
 | `define_plate(plate_type)` | `hcs` | Build ngff-zarr `Plate` metadata from a `PlateType` |
@@ -167,7 +174,7 @@ pip install -e .
 After installation, import with:
 
 ```python
-from czi_omezarr_utils import write_omezarr_ngff, convert_czi2hcs_ngff, omezarr_package
+from czi_omezarr_utils import write_omezarr_ngff, convert_czi2hcs_ngff, omezarr_package, validate_ome_zarr
 ```
 
 ---
@@ -307,7 +314,7 @@ array = array.squeeze("S")  # → 5D xarray (T, C, Z, Y, X)
 
 ```python
 from czi_omezarr_utils import write_omezarr_ngff
-write_omezarr_ngff(array, zarr_output_path, mdata, scale_factors=[2, 4], overwrite=True)
+write_omezarr_ngff(array, zarr_output_path, mdata, scale_factors=[2, 4], overwrite=True, version="0.5")
 ```
 
 ### Writing with ome-zarr-py
@@ -317,9 +324,14 @@ from czi_omezarr_utils import write_omezarr
 write_omezarr(array, zarr_path=str(zarr_output_path), metadata=mdata, overwrite=True)
 ```
 
-### Validating output with ngff-zarr
+### Validating output
 
 ```python
+# Validate any OME-ZARR file (image or HCS plate) against OME-NGFF v0.5
+from czi_omezarr_utils import validate_ome_zarr
+ok = validate_ome_zarr(zarr_output_path)  # returns True/False
+
+# Low-level ngff-zarr validation (requires NGFF_ZARR backend output)
 import ngff_zarr as nz
 multiscales = nz.from_ngff_zarr(zarr_output_path, validate=True)
 hcs = nz.from_hcs_zarr(zarr_output_path, validate=True)  # for HCS
@@ -339,8 +351,12 @@ napari.run()
 ## Known Issues & Notes
 
 - **`ngff-zarr 0.29.0` was broken** — `from_ngff_zarr.py` contained null bytes in the PyPI wheel. This was fixed in `0.34.0`; use `ngff-zarr>=0.34.0` (already pinned in `pyproject.toml` and `env_omezarr.yml`).
+- **`dask` is pinned to `>=2024.1,<2025.11` in `pixi.toml`** — `ngio>=0.5.9` requires `dask<2025.11.0`. Without this pin pixi would resolve to dask 2026.x and ngio installation would fail.
+- **`ome-zarr-py` only writes OME-NGFF v0.4** — use `NGFF_ZARR` backend when OME-NGFF v0.5 and zarr v3 store format are required. `write_omezarr` / `convert_czi2hcs_omezarr` are retained for compatibility only.
+- **HCS well column paths are zero-padded by default** (e.g. `B/04/0`). Pass `pad_columns=False` to `extract_well_coordinates`, `convert_czi2hcs_omezarr`, or `convert_czi2hcs_ngff` to revert to unpadded paths (`B/4/0`).
 - `zarr` v3 is installed; some older ome-zarr-py patterns expecting zarr v2 store APIs may need adjustment (`parse_url`, `zarr.open_group` kwargs differ slightly).
 - The `~ygments-*.dist-info` ghost directory can appear in the conda env if a `pip install` is interrupted mid-run. Remove it with `Remove-Item -LiteralPath` (PowerShell) or `rm -rf` (bash).
-- The GUI uses **PyQt5** via `qtpy`. Do not mix Qt bindings — keep `QT_API=pyqt5` consistent.
+- **Qt bindings differ by environment**: the conda `omezarr` env and the GUI (`czi_to_omezarr_gui.py`) use **PyQt5** via `qtpy` (`QT_API=pyqt5`); the pixi env has **PySide6**. Do not mix bindings within a single process. VS Code `launch.json` sets `QT_API=pyside6` for pixi-based debug sessions.
+- When debugging with VS Code + pixi, use the launch configs in `.vscode/launch.json`; they set `MPLBACKEND=Agg` and `QT_API=pyside6` to prevent debugpy's Qt4 input-hook from failing against PySide6.
 - Background conversion threads are `daemon=True` — closing the window will terminate them without cleanup.
 - Log files are written alongside the input CZI file (same directory).

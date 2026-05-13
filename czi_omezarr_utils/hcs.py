@@ -30,17 +30,23 @@ logger = logging.getLogger(__name__)
 
 def extract_well_coordinates(
     well_counter: dict,
+    pad_columns: bool = True,
 ) -> tuple[list[str], list[str], list[str]]:
     """Extract unique row and column names from a well counter dictionary.
 
     Args:
         well_counter: Dictionary with well positions as keys (e.g., {'B4': 4, 'B5': 4}).
+        pad_columns: If ``True`` (default), zero-pad column numbers to at least 2 digits
+            (e.g. ``"04"`` instead of ``"4"``). The pad width grows automatically when
+            the maximum column number requires more digits (e.g. 3 digits for column
+            numbers ≥ 100). If ``False``, column numbers are returned as-is.
 
     Returns:
         tuple containing:
             - row_names: Sorted list of unique row letters.
-            - col_names: Sorted list of unique column numbers (as strings).
-            - well_paths: List of well paths in "row/column" format.
+            - col_names: Sorted list of column number strings, zero-padded when
+              *pad_columns* is ``True``.
+            - well_paths: List of well paths in ``"row/column"`` format.
     """
     rows: set[str] = set()
     cols: set[str] = set()
@@ -50,7 +56,12 @@ def extract_well_coordinates(
         cols.add("".join(filter(str.isdigit, well)))
 
     row_names = sorted(rows)
-    col_names = sorted(cols)
+    sorted_cols = sorted(cols, key=int)
+    if pad_columns:
+        pad_width = max(2, len(str(max(int(c) for c in cols))))
+        col_names = [c.zfill(pad_width) for c in sorted_cols]
+    else:
+        col_names = sorted_cols
     well_paths = [f"{row}/{col}" for row in row_names for col in col_names]
 
     return row_names, col_names, well_paths

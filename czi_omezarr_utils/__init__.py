@@ -25,6 +25,7 @@ Public API — import everything from here so callers need only one import line:
         ArrayProcessor,
         create_well_plate_heatmap,
         process_hcs_omezarr,
+        validate_ome_zarr,
     )
 """
 
@@ -46,6 +47,7 @@ from .hcs import (
 from .display import get_fieldimage, get_display, create_channel_list
 from .processing import ArrayProcessor, process_hcs_omezarr
 from .plotting import create_well_plate_heatmap
+from .validation import validate_ome_zarr
 
 __all__ = [
     "omezarr_package",
@@ -66,4 +68,5 @@ __all__ = [
     "ArrayProcessor",
     "process_hcs_omezarr",
     "create_well_plate_heatmap",
+    "validate_ome_zarr",
 ]
