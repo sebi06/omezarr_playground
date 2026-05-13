@@ -6,7 +6,8 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     ### Create OME-ZARR from a CZI image file
 
     * Select the OME-Package to be used
@@ -20,7 +21,8 @@ def _(mo):
     * write array & metadata into an OME-ZARR file
 
     ---
-    """)
+    """
+    )
     return
 
 
@@ -30,12 +32,12 @@ def required_imports():
     from czitools.read_tools import read_tools
     from czitools.metadata_tools.czi_metadata import CziMetadata
     import logging
-    from ome_zarr_utils import (
+    from czi_omezarr_utils import (
         convert_czi2hcs_omezarr,
         convert_czi2hcs_ngff,
         omezarr_package,
         write_omezarr,
-        write_omezarr_ngff
+        write_omezarr_ngff,
     )
     import ngff_zarr as nz
     from pathlib import Path
@@ -43,6 +45,7 @@ def required_imports():
     from importlib.metadata import version
     import ome_zarr
     import zarr
+
     return (
         CziMetadata,
         Path,
@@ -68,7 +71,7 @@ def package_versions(mo, nz, ome_zarr, version, zarr):
             mo.md(f"ZARR Version: {zarr.__version__}"),
             mo.md(f"NGFF-ZARR Version: {nz.__version__}"),
             mo.md(f"OME-ZARR Version: {version('ome-zarr')}"),
-            mo.md("---")
+            mo.md("---"),
         ]
     )
     return
@@ -98,7 +101,9 @@ def select_czi(Path, mo):
 @app.cell
 def _(mo):
     dropdown_package = mo.ui.dropdown(
-        options=["OME-ZARR Package", "NGFF-ZARR Package"], value="OME-ZARR Package", label="Choose Package for Conversion"
+        options=["OME-ZARR Package", "NGFF-ZARR Package"],
+        value="OME-ZARR Package",
+        label="Choose Package for Conversion",
     )
     dropdown_hcs = mo.ui.dropdown(
         options=["Normal OME-ZARR", "HCS OME-ZARR (WellPlates)"], value="Normal OME-ZARR", label="Choose OME-ZARR Type"
@@ -131,11 +136,12 @@ def _(CziMetadata, dropdown_hcs, file_browser, mo):
         else:
             max_scene_value = max_scenes
 
-        scene_slider = mo.ui.slider(steps=list(range(1, max_scene_value + 1)),
-                                    label="Scene Id (not used for HCS)",
-                                    disabled=disable_scene,
-                                    show_value=True
-                             )
+        scene_slider = mo.ui.slider(
+            steps=list(range(1, max_scene_value + 1)),
+            label="Scene Id (not used for HCS)",
+            disabled=disable_scene,
+            show_value=True,
+        )
 
     mo.md(f"Maximum Scenes: {max_scene_value} - Disable Scene Slider: {disable_scene}")
     return filepath, max_scene_value, max_scenes, scene_slider
@@ -146,13 +152,7 @@ def _(dropdown_hcs, max_scene_value, mo, scene_slider):
     _output = None
 
     if dropdown_hcs.value == "Normal OME-ZARR" and max_scene_value > 1:
-        _output = mo.hstack(
-            [
-                scene_slider,
-                mo.md(f"Value: {scene_slider.value}")
-            ],
-            justify="start"
-        )
+        _output = mo.hstack([scene_slider, mo.md(f"Value: {scene_slider.value}")], justify="start")
 
     _output
     return
@@ -183,37 +183,35 @@ def _(
     if convert_button.value:
 
         with mo.redirect_stderr():
-    
+
             if dropdown_hcs.value == "Normal OME-ZARR":
-    
+
                 if max_scenes is None:
                     scene_id = 0
                 else:
                     scene_id = scene_slider.value - 1
-    
+
                 # Read the CZI file as a 6D array with dimension order STCZYX(A)
                 # S=Scene, T=Time, C=Channel, Z=Z-stack, Y=Height, X=Width
                 array, mdata = read_tools.read_6darray(filepath, planes={"S": (scene_id, scene_id)}, use_xarray=True)
-    
+
                 # Extract the specified scene (remove Scene dimension to get 5D array)
                 # write_omezarr requires 5D array (TCZYX), not 6D (STCZYX)
                 array = array.squeeze("S")  # Remove the Scene dimension
-    
+
                 if dropdown_package.value == "OME-ZARR Package":
-    
+
                     # Generate output path with .ome.zarr extension
                     zarr_output_path_normal: Path = Path(str(filepath)[:-4] + ".ome.zarr")
-    
+
                     # Write OME-ZARR using ome-zarr-py backend
-                    _ = write_omezarr(
-                        array, zarr_path=str(zarr_output_path_normal), metadata=mdata, overwrite=True
-                    )
-    
+                    _ = write_omezarr(array, zarr_path=str(zarr_output_path_normal), metadata=mdata, overwrite=True)
+
                 elif dropdown_package.value == "NGFF-ZARR Package":
-    
+
                     # Generate output path with _ngff.ome.zarr extension
                     zarr_output_path_normal: Path = Path(str(filepath)[:-4] + "_ngff.ome.zarr")
-    
+
                     # Write OME-ZARR using ngff-zarr backend with multi-resolution pyramid
                     # scale_factors=[2, 4] creates 3 resolution levels (1x, 2x, 4x downsampled)
                     _ = write_omezarr_ngff(array, zarr_output_path_normal, mdata, scale_factors=[2, 4], overwrite=True)
@@ -233,15 +231,15 @@ def _(
     if convert_button.value:
 
         with mo.redirect_stderr():
-    
+
             if dropdown_hcs.value == "HCS OME-ZARR (WellPlates)":
-    
+
                 if dropdown_package.value == "OME-ZARR Package":
-    
+
                     zarr_output_path_hcs = convert_czi2hcs_omezarr(filepath, overwrite=True)
-    
+
                 elif dropdown_package.value == "NGFF-ZARR Package":
-    
+
                     zarr_output_path_hcs = convert_czi2hcs_ngff(filepath, plate_name="TestWell96", overwrite=True)
     return (zarr_output_path_hcs,)
 
@@ -249,11 +247,11 @@ def _(
 @app.cell
 def _(convert_button, dropdown_hcs, mo, nz, zarr_output_path_hcs):
     if convert_button.value:
-    
+
         with mo.redirect_stderr():
-    
+
             if dropdown_hcs.value == "HCS OME-ZARR (WellPlates)":
-    
+
                 # Validate the HCS-ZARR file against OME-NGFF specification
                 # This ensures proper metadata structure for multi-well plate data
                 hcs_plate = nz.from_hcs_zarr(zarr_output_path_hcs, validate=True)

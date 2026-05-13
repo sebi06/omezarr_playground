@@ -35,15 +35,27 @@ conda activate base
 conda install jupyterlab jupyter_server nb_conda_kernels
 ```
 
-To run the notebooks locally it is recommended to create a fresh conda environment. Please feel free to use the provided [YML file](omezarr_env.yml) (at your own risk) to create such an environment:
+To run the notebooks locally it is recommended to create a fresh conda environment. Please feel free to use the provided [YML file](env_omezarr.yml) (at your own risk) to create such an environment:
 
 ```cmd
-conda env create --file omezarr_env.yml
+conda env create --file env_omezarr.yml
 ```
 
-## Utilities: ome_zarr_utils.py
+Alternatively, a [pixi.toml](pixi.toml) file is provided for use with the [pixi](https://prefix.dev/docs/pixi/overview) package manager:
 
-Collection of functions related to converting CZI to OME-ZARR
+```cmd
+pixi install
+pixi run python scripts/create_omezarr_example.py
+```
+
+## Utilities: czi_omezarr_utils
+
+Installable utility package for converting CZI to OME-ZARR. Install in editable mode from the repo root:
+
+```bash
+conda activate omezarr
+pip install -e .
+```
 
 Example Usage:
 
@@ -62,7 +74,7 @@ Supports two backend libraries:
 """
 
 import logging
-from ome_zarr_utils import (
+from czi_omezarr_utils import (
     convert_czi2hcs_omezarr,
     convert_czi2hcs_ngff,
     omezarr_package,
@@ -188,59 +200,9 @@ if __name__ == "__main__":
     main()
 ```
 
-## Convert CZI to OME-ZARR: convert2omezarr.py
-
-The tool can be used from the commandline:
-
-```bash
-python convert2omezarr.py --czifile ../data/CellDivision5D.czi --use_ngffzarr --scales [2,4] --overwrite
-```
-
-General Usage Instructions:
-
-```txt
-usage: convert2omezarr.py [-h] --czifile CZIFILE [--use_ngffzarr | --use_omezarr] [--zarr ZARR] [--scales SCALES] [--overwrite] [--validate] [--scene SCENE]
-
-Convert CZI files to OME-ZARR format
-
-options:
-  -h, --help         show this help message and exit
-  --czifile CZIFILE  Path to the input CZI file to convert (required)
-  --use_ngffzarr     Use NGFF-ZARR package
-  --use_omezarr      Use OME-ZARR package
-  --zarr ZARR        Output path for the OME-ZARR file (default: <czifile>_ngff_plate.ome.zarr)
-  --scales SCALES    Multiscale downsampling factors as JSON-style list (default: [1,2,4]). Example: --scales [2,4,8]
-  --overwrite        Overwrite existing OME-ZARR files if they exist (default: False)
-  --validate         Validate the output OME-ZARR files (default: False)
-  --scene SCENE      Scene index to process (default: 0)
-
-Examples:
-    # Basic conversion with default NGFF-ZARR format and default scales
-    python convert2omezarr.py --czifile myimage.czi
-
-    # Use specific multiscale factors
-    python convert2omezarr.py --czifile myimage.czi --scales [2,4,8]
-
-    # Use OME-ZARR format explicitly with custom scales
-    python convert2omezarr.py --czifile myimage.czi --use_omezarr --scales [1,2,4,8]
-
-    # Use NGFF-ZARR format explicitly
-    python convert2omezarr.py --czifile myimage.czi --use_ngffzarr --scales [2,4]
-
-    # Specify custom output path and scales
-    python convert2omezarr.py --czifile myimage.czi --zarr /path/to/output.ome.zarr --scales [1,2,4]
-
-    # Enable overwrite mode to replace existing files
-    python convert2omezarr.py --czifile myimage.czi --overwrite --scales [2,4,8,16]
-
-Notes:
-    - If no format is specified, NGFF-ZARR format is used by default (recommended)
-    - Scales must be specified as a list in brackets: [2,4,8] or [1,2,4]
-    - The output format follows the OME-NGFF specification
-    - All conversion logs are saved to '<input_filename>_hcs_omezarr.log'
-```
-
 ## Convert CZI from a Wellplate to HCS OME-ZARR: convert2hcs_omezarr.py
+
+> **Note:** The standard single-scene `convert2omezarr.py` script has been moved to `_archive/`. For standard (non-HCS) conversions, use `scripts/create_omezarr_example.py` or import directly from `czi_omezarr_utils`.
 
 General Usage Instructions:
 
@@ -258,7 +220,7 @@ Convert CZI files to OME-ZARR HCS (High Content Screening) format
 options:
   -h, --help         show this help message and exit
   --czifile CZIFILE  Path to the input CZI file to convert (required)
-  --use_ngffzarr     Use NGFF-ZARR format to create the HCS Plate Layout (recommended)
+  --use_ngffzarr     Use NGFF-ZARR format to create the HCS Plate Layout
   --use_omezarr      Use OME-ZARR format to create the HCS Plate Layout
   --zarr ZARR        Output path for the OME-ZARR file (default: <czifile>_ngff_plate.ome.zarr)
   --plate PLATE      Name of the well plate for metadata (default: 'Automated Plate')
@@ -282,29 +244,40 @@ Examples:
     python convert2hcs_omezarr.py --czifile WP96_plate.czi --overwrite
 
 Notes:
-    - If no format is specified, NGFF-ZARR format is used by default (recommended)
+    - If no format is specified, NGFF-ZARR format is used by default
     - The output format follows the OME-NGFF specification for HCS data
     - Data is organized in a plate/well/field hierarchy
     - All conversion logs are saved to '<input_filename>_hcs_omezarr.log'
 ```
 
+### Validate OME-ZARR output: validate_omezarr.py
+
+After conversion, the resulting OME-ZARR files can be validated against the OME-NGFF specification using `scripts/validate_omezarr.py`:
+
+```python
+from scripts.validate_omezarr import validate_ome_zarr
+validate_ome_zarr("path/to/output.ome.zarr")
+```
+
+Both standard image and HCS plate layouts are supported.
+
 ### CZI - Normal Conversion Example Notebook
 
 The process of converting an CZI to a normal OME-ZARR is explained in more detail here:
 
-Jupyter Notebook - Conversion: [convert_czi2hcs_omezarr.ipynb](scripts/convert_czi2_omezarr.ipynb)
+Jupyter Notebook - Conversion: [convert_czi2_omezarr.ipynb](notebooks/convert_czi2_omezarr.ipynb)
 
 ### CZI - HCS Conversion Example Notebook
 
 The process of converting an CZI to a HCS OME-ZARR is explained in more detail here:
 
-Jupyter Notebook - HCS Conversion: [convert_czi2hcs_omezarr.ipynb](scripts/convert_czi2hcs_omezarr.ipynb)
+Jupyter Notebook - HCS Conversion: [convert_czi2hcs_omezarr.ipynb](notebooks/convert_czi2hcs_omezarr.ipynb)
 
 ## Analyze and HCS OME-ZARR
 
 After the conversion it is very straight forward to analyze the resulting HCS OME-ZARR.
 
-Jupyter Notebook - Image Analysis: [process_omezarr_HCS_plate.ipynb](scripts/process_omezarr_HCS_plate.ipynb)
+Jupyter Notebook - Image Analysis: [process_omezarr_HCS_plate.ipynb](notebooks/process_omezarr_HCS_plate.ipynb)
 
 The final result for that example is this heatmap:
 

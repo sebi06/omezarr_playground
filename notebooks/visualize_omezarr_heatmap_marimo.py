@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.0"
+__generated_with = "0.23.1"
 app = marimo.App(width="medium")
 
 
@@ -8,13 +8,14 @@ app = marimo.App(width="medium")
 def _():
     import marimo as mo
     import logging
-    from plotting_utils import create_well_plate_heatmap
+    from czi_omezarr_utils import create_well_plate_heatmap
     import ngff_zarr as nz
     import numpy as np
     import matplotlib.pyplot as plt
-    from processing_tools import ArrayProcessor
+    from czi_omezarr_utils import ArrayProcessor
     import pandas as pd
     from typing import Dict
+
     try:
         import altair as alt
     except ImportError as e:
@@ -46,7 +47,7 @@ def _(logging):
 
 @app.cell
 def _(mo):
-    file_browser = mo.ui.file_browser(multiple=False, restrict_navigation=False, selection_mode="directory", initial_path=None)
+    file_browser = mo.ui.file_browser(multiple=False, restrict_navigation=False, selection_mode="directory")
 
     # Display the file browser
     mo.vstack([file_browser])
@@ -171,14 +172,10 @@ def _(Dict, alt, pd):
         data_list = []
         for well_key, value in results.items():
             row_name, col_name = well_key.split("/")
-            data_list.append({
-                'Row': row_name,
-                'Column': int(col_name),
-                parameter: value
-            })
+            data_list.append({"Row": row_name, "Column": int(col_name), parameter: value})
 
         df = pd.DataFrame(data_list)
-        df['Column'] = df['Column'].astype(str)
+        df["Column"] = df["Column"].astype(str)
 
         # Define row and column order
         rows_labels = [chr(65 + i) for i in range(num_rows)]
@@ -188,24 +185,18 @@ def _(Dict, alt, pd):
         median_value = df[parameter].median()
 
         # 2. Define the Marimo Selection Parameter (CRITICAL FOR REACTIVITY)
-        marimo_selection = alt.selection_point(
-            name="marimo_selection", 
-            fields=['Row', 'Column'], 
-            empty=True
-        )
+        marimo_selection = alt.selection_point(name="marimo_selection", fields=["Row", "Column"], empty=True)
 
         # 3. Create the Base Chart
-        base_chart = alt.Chart(df, title=title).encode(
-            x=alt.X('Column:O', sort=cols_labels, axis=alt.Axis(title="Column")),
-            y=alt.Y('Row:O', sort=rows_labels, axis=alt.Axis(title="Row")),
-            color=alt.Color(
-                f'{parameter}:Q',
-                title=parameter,
-                scale=alt.Scale(range=cmap_range)
-            ),
-            tooltip=['Row', 'Column', alt.Tooltip(f'{parameter}:Q', title=parameter, format='.2f')]
-        ).add_params(
-            marimo_selection
+        base_chart = (
+            alt.Chart(df, title=title)
+            .encode(
+                x=alt.X("Column:O", sort=cols_labels, axis=alt.Axis(title="Column")),
+                y=alt.Y("Row:O", sort=rows_labels, axis=alt.Axis(title="Row")),
+                color=alt.Color(f"{parameter}:Q", title=parameter, scale=alt.Scale(range=cmap_range)),
+                tooltip=["Row", "Column", alt.Tooltip(f"{parameter}:Q", title=parameter, format=".2f")],
+            )
+            .add_params(marimo_selection)
         )
 
         # 4. Add the Rectangle Layer (The Cells)
@@ -213,31 +204,31 @@ def _(Dict, alt, pd):
             # Visual highlighting logic
             stroke=alt.condition(
                 marimo_selection,  # If selected...
-                alt.value('red'),  # Use red stroke
-                alt.value('gray')   # Otherwise, use gray stroke
+                alt.value("red"),  # Use red stroke
+                alt.value("gray"),  # Otherwise, use gray stroke
             ),
             strokeWidth=alt.condition(
                 marimo_selection,  # If selected...
-                alt.value(2),      # Use thicker border
-                alt.value(0.5)     # Otherwise, use thin border
+                alt.value(2),  # Use thicker border
+                alt.value(0.5),  # Otherwise, use thin border
             ),
             # Dim unselected cells slightly
-            opacity=alt.condition(marimo_selection, alt.value(1.0), alt.value(0.8))
+            opacity=alt.condition(marimo_selection, alt.value(1.0), alt.value(0.8)),
         )
 
         # 5. Add Annotation Layer (if requested)
         if annot:
             text_layer = base_chart.mark_text(
-                baseline='middle',
+                baseline="middle",
                 fontSize=10,
             ).encode(
-                text=alt.Text(f'{parameter}:Q', format='.0f'),
+                text=alt.Text(f"{parameter}:Q", format=".0f"),
                 # NEW FIX: Conditional coloring for text contrast
                 color=alt.condition(
                     alt.datum[parameter] > median_value,
-                    alt.value('black'),  # For bright cells (high values), use black text
-                    alt.value('white')   # For dark cells (low values), use white text
-                )
+                    alt.value("black"),  # For bright cells (high values), use black text
+                    alt.value("white"),  # For dark cells (low values), use white text
+                ),
             )
 
             final_chart = rect_layer + text_layer
@@ -245,22 +236,15 @@ def _(Dict, alt, pd):
             final_chart = rect_layer
 
         # Final styling and configuration
-        return final_chart.configure_view(
-            stroke=None 
-        ).configure_title(
-            fontSize=14,
-            anchor='start'
-        )
+        return final_chart.configure_view(stroke=None).configure_title(fontSize=14, anchor="start")
+
     return (create_well_plate_altair_heatmap,)
 
 
 @app.cell
 def _(create_well_plate_altair_heatmap, mo, results_obj):
     chart = create_well_plate_altair_heatmap(
-        results=results_obj,
-        parameter="Object Count",
-        title="96-Well Plate Analysis",
-        cmap_range="heatmap"
+        results=results_obj, parameter="Object Count", title="96-Well Plate Analysis", cmap_range="heatmap"
     )
 
     # 2. Reactive UI Definition (From original Cell 1)
@@ -268,7 +252,7 @@ def _(create_well_plate_altair_heatmap, mo, results_obj):
         chart,
     )
 
-    # We define well_selector as the last expression to ensure its variable 
+    # We define well_selector as the last expression to ensure its variable
     # is exported for other cells to use.
     well_selector
     return (well_selector,)
@@ -282,10 +266,12 @@ def _(mo, well_selector):
     selected_well = well_selector.value
 
     # 4. Conditional Output Logic
-    output_md = mo.md("""
+    output_md = mo.md(
+        """
         ### 🧪 Well Plate Detail Panel
         Click on any well in the heatmap above to see its details.
-    """)
+    """
+    )
 
     if not selected_well.empty:
         # Extract the data from the selected row (always index 0 for "point" selection)
@@ -293,26 +279,24 @@ def _(mo, well_selector):
         # Ensure 'Object Count' is accessed correctly
         value = selected_well.iloc[0]["Object Count"]
 
-        output_md = mo.md(f"""
+        output_md = mo.md(
+            f"""
             ### 🧪 Selected Well: **{well_name}**
             The **Object Count** for this well is: **{value:.0f}**
-        """)
+        """
+        )
 
     # 5. Final Output (Display both the chart and detail panel side-by-side)
-    # mo.hstack REQUIRES a single list of elements. We use mo.vstack to group 
+    # mo.hstack REQUIRES a single list of elements. We use mo.vstack to group
     # the title and content for each column before stacking them horizontally.
-    mo.hstack([
-        # LEFT SIDE: Heatmap container (Title + Chart UI)
-        mo.vstack([
-            mo.md("## Well Plate Heatmap"),
-            well_selector
-        ]),
-        # RIGHT SIDE: Details Panel container (Title + Detail Output)
-        mo.vstack([
-            mo.md("## Selected Well Details"),
-            output_md
-        ])
-    ])
+    mo.hstack(
+        [
+            # LEFT SIDE: Heatmap container (Title + Chart UI)
+            mo.vstack([mo.md("## Well Plate Heatmap"), well_selector]),
+            # RIGHT SIDE: Details Panel container (Title + Detail Output)
+            mo.vstack([mo.md("## Selected Well Details"), output_md]),
+        ]
+    )
     return
 
 

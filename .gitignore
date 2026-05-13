@@ -214,3 +214,5 @@ __marimo__/
 /data/**/*.ome.zarr
 /data/**/*.ozx
 /data/**/*.log
+/.vscode
+/czi_omezarr_utils.egg-info
