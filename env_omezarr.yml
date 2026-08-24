@@ -37,7 +37,7 @@ dependencies:
       - bioio-czi
       - bioio-ome-zarr
       - bioio-conversion
-      - czitools>=0.17.0
+      - czitools>=0.17.2
       - df2tables
       - loguru
       - napari-brightness-contrast

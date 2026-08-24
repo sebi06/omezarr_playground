@@ -5,18 +5,20 @@ description = "Playground for converting Carl Zeiss Image (CZI) files to OME-ZAR
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64"]
 
+[environments]
+omezarr = { features = ["default"], solve-group = "default" }
+
 [dependencies]
-python = "3.13.*"
+python = "3.12.*"
 altair = "*"
 colormap = "*"
-dask = ">=2024.1,<2025.11"
+dask = "*"
 dask-image = "*"
+grpclib = "*"
 fsspec = "*"
 ipyfilechooser = "*"
 ipykernel = "*"
-magicgui = "*"
 matplotlib = ">=3.7.0"
-napari = ">=0.6.5"
 numpy = "*"
 pandas = "<3"
 pytest = "*"
@@ -38,7 +40,8 @@ czi-omezarr-utils = {path = ".", editable = true}
 
 # CZI readers
 aicspylibczi = ">=3.3.1"
-czitools = ">=0.17.0"
+czitools = ">=0.17.2"
+czifile = ">=2026.4.30"
 
 # BioIO ecosystem
 bioio = "*"
@@ -49,26 +52,34 @@ bioio-conversion = "*"
 # OME-ZARR ecosystem
 ngff-zarr = ">=0.34.0"
 ome-zarr = ">=0.16.0"
-ome-writers = "*"
+ome-writers = {version = ">=0.3.2", extras = ["acquire-zarr"]}
+
+# napari + GUI (moved from conda to avoid superqt 0.8.0 pin from conda-forge)
+napari = ">=0.7.0"
+magicgui = "*"
 
 # napari plugins
-napari-brightness-contrast = "*"
 napari-crop = "*"
-napari-czitools = "*"
-napari-layer-details-display = "*"
-napari-ome-zarr = "*"
-napari-plugin-search = "*"
+napari-czitools = ">=0.0.11"
+napari-layer-statistics = "*"
+napari-ome-zarr = ">=0.8.0"
 napari-skimage-regionprops = "*"
 
 # Other utilities
 df2tables = "*"
 loguru = "*"
 marimo = "*"
-ngio = ">=0.5.9"
+ngio = ">=0.5.10"
+pip-system-certs = "*"
+betterproto = {version = ">=2.0.0b7", extras = ["compiler"]}
+ndv = {version = ">=0.5.0", extras = ["vispy", "pyqt"]}
 
 [tasks]
 # Launch the MagicGUI converter application
 gui = {cmd = "python scripts/run_czi_converter_gui.py", description = "Launch the CZI-to-OME-ZARR GUI"}
+
+# start Napari with the zen-python environment
+start-napari = {cmd = "napari"}
 
 # Run the HCS plate conversion example
 convert-hcs = {cmd = "python scripts/convert2hcs_omezarr.py", description = "Run HCS plate conversion CLI"}
@@ -86,6 +97,3 @@ validate = {cmd = "python scripts/validate_omezarr.py", description = "Validate 
 marimo-convert = {cmd = "marimo run notebooks/create_omezarr_marimo.py", description = "Run OME-ZARR conversion Marimo notebook"}
 marimo-heatmap = {cmd = "marimo run notebooks/visualize_omezarr_heatmap_marimo.py", description = "Run heatmap visualisation Marimo notebook"}
 marimo-edit = {cmd = "marimo edit", description = "Open Marimo in edit mode"}
-
-# Run tests
-test = {cmd = "pytest", description = "Run test suite"}
